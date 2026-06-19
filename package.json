@@ -1,0 +1,20 @@
+{
+  "name": "aesthetica-reborn-android",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android",
+    "build:web": "node -e \"console.log('Static web build already in dist/')\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Android wrapper for Aesthetica Reborn",
+  "private": true,
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1"
+  }
+}
