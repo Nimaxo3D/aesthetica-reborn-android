@@ -77,7 +77,8 @@ const els = {
   modelCanvas: $("modelCanvas"), modelNotes: $("modelNotes"), toast: $("toast"), installBtn: $("installBtn"), mobileAnalyzeBtn: $("mobileAnalyzeBtn"), mobileResetBtn: $("mobileResetBtn"),
   uploadSummary: $("uploadSummary"), frontPreview: $("frontPreview"), profilePreview: $("profilePreview"), bodyFrontPreview: $("bodyFrontPreview"), bodySidePreview: $("bodySidePreview"),
   appStatus: $("appStatus"), cameraModal: $("cameraModal"), cameraVideo: $("cameraVideo"), cameraCanvas: $("cameraCanvas"), cameraTitle: $("cameraTitle"), cameraHint: $("cameraHint"), cameraCloseBtn: $("cameraCloseBtn"), cameraCaptureBtn: $("cameraCaptureBtn"), cameraSwitchBtn: $("cameraSwitchBtn"), cameraFallbackBtn: $("cameraFallbackBtn"),
-  inspectBtn: $("inspectBtn"), fitViewerBtn: $("fitViewerBtn"), viewerHint: $("viewerHint")
+  inspectBtn: $("inspectBtn"), fitViewerBtn: $("fitViewerBtn"), viewerHint: $("viewerHint"), homeAnalyzeBtn: $("homeAnalyzeBtn"), homeResetBtn: $("homeResetBtn"),
+  metricSheet: $("metricSheet"), metricSheetCloseBtn: $("metricSheetCloseBtn"), metricSheetDoneBtn: $("metricSheetDoneBtn"), metricSheetTitle: $("metricSheetTitle"), metricSheetSubtitle: $("metricSheetSubtitle"), metricSheetCategory: $("metricSheetCategory"), metricVisualCanvas: $("metricVisualCanvas"), metricVisualText: $("metricVisualText"), metricCompareWrap: $("metricCompareWrap"), metricCompareSlider: $("metricCompareSlider"), metricOverlayBtn: $("metricOverlayBtn")
 };
 const ctx = els.canvas.getContext("2d");
 const curveCtx = els.curveCanvas.getContext("2d");
@@ -89,7 +90,8 @@ const state = {
   faceLandmarker:null, poseLandmarker:null, ready:false, busy:false,
   overlay:"proportions", fit:null, analysis:null, deferredInstallPrompt:null,
   activeScreen:"home", camera:{stream:null, slot:null, facingMode:"user"}, autoAnalyzeTimer:null,
-  viewer:{zoom:1, panX:0, panY:0, dragging:false, lastX:0, lastY:0, lastDist:0, lastCX:0, lastCY:0, lastTap:0}
+  viewer:{zoom:1, panX:0, panY:0, dragging:false, lastX:0, lastY:0, lastDist:0, lastCX:0, lastCY:0, lastTap:0},
+  metric:{current:null, slider:50}
 };
 
 
@@ -231,17 +233,19 @@ function switchCamera(){
   startCameraStream();
 }
 
-function resetViewerTransform(){
+function resetViewerTransform(redraw=true){
   state.viewer.zoom = 1;
   state.viewer.panX = 0;
   state.viewer.panY = 0;
-  drawViewer();
+  if(redraw) drawViewer();
 }
-function toggleInspectMode(){
-  const entering = !document.body.classList.contains('viewer-inspect');
+function isInspectMode(){ return document.body.classList.contains('viewer-inspect'); }
+function toggleInspectMode(force){
+  const entering = typeof force === 'boolean' ? force : !isInspectMode();
   document.body.classList.toggle('viewer-inspect', entering);
-  if(els.inspectBtn) els.inspectBtn.textContent = entering ? 'Close' : 'Inspect';
-  if(entering) switchScreen('home');
+  document.body.classList.toggle('no-scroll', entering);
+  if(els.inspectBtn) els.inspectBtn.textContent = entering ? 'Done' : 'Open';
+  if(entering) switchScreen('home', {instant:true}); else resetViewerTransform(false);
   requestAnimationFrame(()=>{ drawViewer(); });
 }
 function touchCenter(touches){
@@ -257,10 +261,14 @@ function touchDistance(touches){
 }
 function bindViewerGestures(){
   if(!els.wrap) return;
-  els.fitViewerBtn?.addEventListener('click', resetViewerTransform);
-  els.inspectBtn?.addEventListener('click', toggleInspectMode);
+  els.fitViewerBtn?.addEventListener('click', ()=>resetViewerTransform(true));
+  els.inspectBtn?.addEventListener('click', ()=>toggleInspectMode());
+  els.wrap.addEventListener('click', (e)=>{
+    if(!state.slots.front || isInspectMode()) return;
+    toggleInspectMode(true);
+  });
   els.wrap.addEventListener('touchstart', (e)=>{
-    if(!state.slots.front) return;
+    if(!state.slots.front || !isInspectMode()) return;
     e.preventDefault();
     if(els.viewerHint) els.viewerHint.classList.remove('hidden');
     if(e.touches.length === 1){
@@ -275,7 +283,7 @@ function bindViewerGestures(){
     }
   }, {passive:false});
   els.wrap.addEventListener('touchmove', (e)=>{
-    if(!state.slots.front) return;
+    if(!state.slots.front || !isInspectMode()) return;
     e.preventDefault();
     if(e.touches.length >= 2){
       const d = touchDistance(e.touches); const p = touchCenter(e.touches);
@@ -296,29 +304,33 @@ function bindViewerGestures(){
     drawViewer();
   }, {passive:false});
   els.wrap.addEventListener('touchend', ()=>{
+    if(!isInspectMode()) return;
     state.viewer.dragging = false; state.viewer.lastDist = 0;
     clearTimeout(bindViewerGestures._hintTimer);
     bindViewerGestures._hintTimer = setTimeout(()=>els.viewerHint?.classList.add('hidden'), 1400);
   });
   els.wrap.addEventListener('wheel', (e)=>{
-    if(!state.slots.front) return;
+    if(!state.slots.front || !isInspectMode()) return;
     e.preventDefault();
     state.viewer.zoom = clamp(state.viewer.zoom * (e.deltaY < 0 ? 1.08 : .92), 1, 5.2);
     drawViewer();
   }, {passive:false});
 }
-function switchScreen(name){
+function switchScreen(name, opts={}){
   state.activeScreen = name;
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.dataset.screen === name));
   document.querySelectorAll('.bottom-tab').forEach(b=>b.classList.toggle('active', b.dataset.go === name));
-  window.scrollTo({top:0, behavior:'smooth'});
+  if(!isInspectMode()) window.scrollTo({top:0, behavior: opts.instant ? 'auto' : 'smooth'});
   requestAnimationFrame(()=>{ drawViewer(); renderModel(); renderCurve(); renderRadar(); });
 }
 function updateAnalyzeEnabled(){
   const disabled = !state.slots.front || state.busy;
   els.analyzeBtn.disabled = disabled;
   if(els.mobileAnalyzeBtn) els.mobileAnalyzeBtn.disabled = disabled;
-  if(els.mobileAnalyzeBtn) els.mobileAnalyzeBtn.textContent = state.busy ? 'Analyzing…' : state.analysis ? 'Re-analyze' : 'Analyze';
+  if(els.homeAnalyzeBtn) els.homeAnalyzeBtn.disabled = disabled;
+  const label = state.busy ? 'Analyzing…' : state.analysis ? 'Re-analyze' : 'Analyze';
+  if(els.mobileAnalyzeBtn) els.mobileAnalyzeBtn.textContent = label;
+  if(els.homeAnalyzeBtn) els.homeAnalyzeBtn.textContent = label;
   setStatus(state.busy ? 'Analyzing' : state.analysis ? 'Analyzed' : state.slots.front ? 'Ready' : 'Capture');
 }
 async function handleFile(slot, input){
@@ -342,12 +354,19 @@ els.modeSelect.addEventListener("change", ()=> state.analysis && analyze());
 els.strictnessSelect.addEventListener("change", ()=> state.analysis && analyze());
 els.analyzeBtn.addEventListener("click", analyze);
 els.mobileAnalyzeBtn?.addEventListener("click", analyze);
+els.homeAnalyzeBtn?.addEventListener("click", analyze);
 els.resetImagesBtn.addEventListener("click", resetImages);
 els.mobileResetBtn?.addEventListener("click", resetImages);
+els.homeResetBtn?.addEventListener("click", resetImages);
 els.fullResetBtn.addEventListener("click", fullReset);
 els.metricSearch.addEventListener("input", renderFeatureGrid);
 els.categoryFilter.addEventListener("change", renderFeatureGrid);
-window.addEventListener("resize", () => { drawViewer(); renderModel(); renderCurve(); renderRadar(); });
+els.metricSheetCloseBtn?.addEventListener('click', closeMetricSheet);
+els.metricSheetDoneBtn?.addEventListener('click', closeMetricSheet);
+els.metricSheet?.addEventListener('click', (e)=>{ if(e.target === els.metricSheet) closeMetricSheet(); });
+els.metricCompareSlider?.addEventListener('input', ()=>{ state.metric.slider = Number(els.metricCompareSlider.value || 50); if(state.metric.current) renderMetricVisual(state.metric.current); });
+els.metricOverlayBtn?.addEventListener('click', ()=>{ if(state.metric.current) showMetricOnFace(state.metric.current); });
+window.addEventListener("resize", () => { drawViewer(); renderModel(); renderCurve(); renderRadar(); if(state.metric.current) renderMetricVisual(state.metric.current); });
 if (!('ontouchstart' in window)) {
   els.wrap.addEventListener("dragover", e=>{e.preventDefault(); els.wrap.classList.add("drag");});
   els.wrap.addEventListener("drop", async e=>{ e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f) setSlot("front", await loadImageFile(f)); });
@@ -729,13 +748,18 @@ function fitCanvas(canvas, img){
   canvas.width = Math.max(2, Math.floor(cssW*dpr)); canvas.height = Math.max(2, Math.floor(cssH*dpr));
   canvas.style.width = `${cssW}px`; canvas.style.height = `${cssH}px`;
   const baseScale = Math.min(canvas.width/img.naturalWidth, canvas.height/img.naturalHeight);
-  const scale = baseScale * state.viewer.zoom;
+  const activeZoom = isInspectMode() ? state.viewer.zoom : 1;
+  const scale = baseScale * activeZoom;
   const w = img.naturalWidth*scale, h = img.naturalHeight*scale;
   const maxPanX = Math.max(0, (w - canvas.width) / (2*dpr) + 70);
   const maxPanY = Math.max(0, (h - canvas.height) / (2*dpr) + 70);
-  state.viewer.panX = clamp(state.viewer.panX, -maxPanX, maxPanX);
-  state.viewer.panY = clamp(state.viewer.panY, -maxPanY, maxPanY);
-  return {x:(canvas.width-w)/2 + state.viewer.panX*dpr, y:(canvas.height-h)/2 + state.viewer.panY*dpr, w,h,scale,dpr,cw:canvas.width,ch:canvas.height, zoom:state.viewer.zoom};
+  if(isInspectMode()){
+    state.viewer.panX = clamp(state.viewer.panX, -maxPanX, maxPanX);
+    state.viewer.panY = clamp(state.viewer.panY, -maxPanY, maxPanY);
+  }
+  const panX = isInspectMode() ? state.viewer.panX : 0;
+  const panY = isInspectMode() ? state.viewer.panY : 0;
+  return {x:(canvas.width-w)/2 + panX*dpr, y:(canvas.height-h)/2 + panY*dpr, w,h,scale,dpr,cw:canvas.width,ch:canvas.height, zoom:activeZoom};
 }
 function drawViewer(){
   const slot = state.slots.front;
@@ -856,19 +880,154 @@ function renderAudit(){
   els.auditGrid.innerHTML = rows.map(([k,v])=>`<div><span>${k}</span><b>${v}</b></div>`).join("");
 }
 function renderFeatureGrid(){
-  if(!state.analysis) return;
+  if(!state.analysis){ els.featureGrid.className="feature-grid empty-state"; els.featureGrid.textContent="Run analysis to populate the breakdown."; return; }
   const q=els.metricSearch.value.trim().toLowerCase(), cat=els.categoryFilter.value;
-  const data=state.analysis.features.filter(m => (cat==="all"||m.category===cat) && (!q || `${m.name} ${m.measure} ${m.explanation}`.toLowerCase().includes(q)));
+  const data=state.analysis.features.map((m,i)=>({m,i})).filter(({m}) => (cat==="all"||m.category===cat) && (!q || `${m.name} ${m.measure} ${m.explanation}`.toLowerCase().includes(q)));
   els.featureGrid.className="feature-grid"; els.featureGrid.innerHTML="";
-  for(const m of data){
-    const card=document.createElement("div");
-    const missing=!Number.isFinite(m.score); const score=missing?0:m.score;
+  for (const {m,i} of data){
+    const missing = !Number.isFinite(m.score) || m.conf<.05;
+    const score=missing?0:m.score;
+    const card=document.createElement("article");
     card.className=`feature-card ${!missing && score<5.8?'high-gap':!missing&&score<7?'med-gap':''}`;
+    card.dataset.metricIndex = String(i);
     const tag = missing ? `<span class="tag warn">missing</span>` : score>=8 ? `<span class="tag good">strong</span>` : score<5.8 ? `<span class="tag bad">gap</span>` : score<7 ? `<span class="tag warn">watch</span>` : `<span class="tag">solid</span>`;
     card.innerHTML=`<div class="feature-top"><div><div class="feature-title">${m.name}</div><div class="feature-meta"><span>${m.measure}</span><span>conf ${Math.round(m.conf*100)}%</span></div></div><div class="feature-score">${missing?'—':fmt(score)}</div></div><div class="score-bar"><i style="width:${missing?0:score*10}%"></i></div><p>${m.explanation}</p><small>${m.suggestion}</small><div>${tag}</div>`;
+    card.addEventListener('click', ()=>{ card.classList.add('opening'); setTimeout(()=>card.classList.remove('opening'), 180); openMetricSheet(m); });
     els.featureGrid.appendChild(card);
   }
   if(!data.length){ els.featureGrid.className="feature-grid empty-state"; els.featureGrid.textContent="No matching metrics."; }
+}
+
+function closeMetricSheet(){
+  state.metric.current = null;
+  els.metricSheet?.classList.add('hidden');
+  els.metricSheet?.setAttribute('aria-hidden','true');
+  document.body.classList.remove('no-scroll');
+}
+function openMetricSheet(metric){
+  if(!state.analysis || !metric) return;
+  state.metric.current = metric;
+  state.metric.slider = 50;
+  if(els.metricCompareSlider) els.metricCompareSlider.value = 50;
+  els.metricSheetTitle.textContent = metric.name;
+  els.metricSheetSubtitle.textContent = `${metric.measure || 'visual read'} · ${Number.isFinite(metric.score)?fmt(metric.score)+'/10':'not scored'} · confidence ${Math.round((metric.conf||0)*100)}%`;
+  els.metricSheetCategory.textContent = (metric.category || 'metric').replace('-', ' ');
+  els.metricSheet.classList.remove('hidden');
+  els.metricSheet.setAttribute('aria-hidden','false');
+  document.body.classList.add('no-scroll');
+  renderMetricVisual(metric);
+}
+function setVisualRows(rows){
+  els.metricVisualText.innerHTML = rows.map(r=>`<div class="visual-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
+}
+function metricVisualKind(name){
+  const n=name.toLowerCase();
+  if(n.includes('skin') || n.includes('under-eye')) return 'skin';
+  if(n.includes('eye spacing') || n === 'eyes' || n.includes('eye openness') || n.includes('canthal') || n.includes('brow')) return 'eyes';
+  if(n.includes('symmetry')) return 'symmetry';
+  if(n.includes('harmony') || n.includes('third') || n.includes('face shape')) return 'harmony';
+  if(n.includes('jaw') || n.includes('chin') || n.includes('mandibular')) return 'lower';
+  if(n.includes('nose') || n.includes('mouth') || n.includes('lip')) return 'center';
+  return 'generic';
+}
+function prepareMetricCanvas(){
+  const canvas=els.metricVisualCanvas, c=canvas.getContext('2d');
+  const r=canvas.getBoundingClientRect(), dpr=devicePixelRatio||1;
+  canvas.width=Math.max(2,Math.floor(r.width*dpr)); canvas.height=Math.max(2,Math.floor(r.height*dpr));
+  c.clearRect(0,0,canvas.width,canvas.height);
+  c.fillStyle='#030509'; c.fillRect(0,0,canvas.width,canvas.height);
+  return {canvas,c,W:canvas.width,H:canvas.height,dpr};
+}
+function drawMetricBase(c,W,H,img){
+  const scale=Math.min(W/img.naturalWidth,H/img.naturalHeight);
+  const w=img.naturalWidth*scale,h=img.naturalHeight*scale,x=(W-w)/2,y=(H-h)/2;
+  c.save(); c.imageSmoothingEnabled=true; c.imageSmoothingQuality='high'; c.drawImage(img,x,y,w,h); c.restore();
+  c.fillStyle='rgba(3,5,9,.12)'; c.fillRect(0,0,W,H);
+  return {x,y,w,h,scale,cw:W,ch:H,dpr:devicePixelRatio||1};
+}
+function metricToC(p,fit){ return {x:fit.x+p.x*fit.scale, y:fit.y+p.y*fit.scale}; }
+function drawMetricVisual(metric){
+  if(!state.analysis) return;
+  const {c,W,H,dpr}=prepareMetricCanvas();
+  const A=state.analysis.front, img=A.img, kind=metricVisualKind(metric.name);
+  const fit=drawMetricBase(c,W,H,img);
+  els.metricCompareWrap?.classList.toggle('hidden', !(kind==='symmetry' || kind==='harmony'));
+  if(kind==='skin') drawSkinVisual(c,fit,A,metric);
+  else if(kind==='eyes') drawEyesVisual(c,fit,A,metric);
+  else if(kind==='symmetry') drawSymmetryVisual(c,fit,A,metric);
+  else if(kind==='harmony') drawHarmonyVisual(c,fit,A,metric);
+  else if(kind==='lower') drawRegionVisual(c,fit,A,metric,'lower face',[IDX.leftJaw,IDX.chin,IDX.rightJaw]);
+  else if(kind==='center') drawRegionVisual(c,fit,A,metric,'center line',[IDX.noseBridge,IDX.noseTip,IDX.noseBottom,IDX.mouthLeft,IDX.mouthRight]);
+  else drawGenericVisual(c,fit,A,metric);
+  setVisualRows([
+    ['What this is reading', metric.explanation || 'Visual metric'],
+    ['Practical interpretation', metric.suggestion || 'Use the overlay to inspect the signal.'],
+    ['Current score', Number.isFinite(metric.score) ? `${fmt(metric.score)}/10` : 'not available']
+  ]);
+}
+function drawMetricLabel(c,text,x,y){
+  const dpr=devicePixelRatio||1; c.save(); c.font=`${11*dpr}px Inter, system-ui`; const pad=6*dpr, h=24*dpr, w=c.measureText(text).width+pad*2; c.fillStyle='rgba(4,7,12,.82)'; roundRect(c,x,y-h/2,w,h,10*dpr); c.fill(); c.strokeStyle='rgba(255,255,255,.15)'; c.stroke(); c.fillStyle='#eef5ff'; c.fillText(text,x+pad,y+4*dpr); c.restore();
+}
+function drawMetricLine(c,a,b,color='#f2cf78',w=2){ c.save(); c.strokeStyle=color; c.lineWidth=w*(devicePixelRatio||1); c.lineCap='round'; c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(b.x,b.y); c.stroke(); c.restore(); }
+function drawMetricDot(c,p,color='#8ad8ff',r=4){ c.save(); c.fillStyle=color; c.beginPath(); c.arc(p.x,p.y,r*(devicePixelRatio||1),0,Math.PI*2); c.fill(); c.restore(); }
+function drawEyesVisual(c,fit,A,metric){
+  const pts=[IDX.leftEyeOuter,IDX.leftEyeInner,IDX.rightEyeInner,IDX.rightEyeOuter,IDX.leftEyeTop,IDX.leftEyeBottom,IDX.rightEyeTop,IDX.rightEyeBottom].map(i=>metricToC(pointAt(A.lm,i,A.img),fit));
+  const [lo,li,ri,ro,lt,lb,rt,rb]=pts;
+  c.fillStyle='rgba(0,0,0,.22)'; c.fillRect(0,0,fit.cw,fit.ch);
+  drawMetricLine(c,lo,li,'#8ad8ff',3); drawMetricLine(c,ri,ro,'#8ad8ff',3); drawMetricLine(c,li,ri,'#f2cf78',3);
+  drawMetricLine(c,lt,lb,'#65e7a9',2); drawMetricLine(c,rt,rb,'#65e7a9',2);
+  pts.forEach((p,i)=>drawMetricDot(c,p,i<4?'#f2cf78':'#8ad8ff',3));
+  drawMetricLabel(c,'eye width',lo.x,lo.y-22*(devicePixelRatio||1));
+  drawMetricLabel(c,'inner gap', (li.x+ri.x)/2-34*(devicePixelRatio||1), (li.y+ri.y)/2+28*(devicePixelRatio||1));
+}
+function drawSkinVisual(c,fit,A,metric){
+  const f=A.frame; const pts=[f.fromLocal(-f.ipd*.55,f.ipd*.72),f.fromLocal(f.ipd*.55,f.ipd*.72),f.fromLocal(-f.ipd*.38,f.ipd*1.03),f.fromLocal(f.ipd*.38,f.ipd*1.03),f.fromLocal(0,f.ipd*.95),f.fromLocal(0,f.ipd*1.45)];
+  let patches=[]; try{ patches=samplePixelStats(A.img,pts,f); }catch(e){ patches=[]; }
+  c.fillStyle='rgba(0,0,0,.25)'; c.fillRect(0,0,fit.cw,fit.ch);
+  pts.forEach((p,i)=>{ const q=metricToC(p,fit); drawMetricDot(c,q,i<2?'#8ad8ff':'#f2cf78',8); });
+  const dpr=devicePixelRatio||1, x=16*dpr, y=16*dpr, chipW=42*dpr, chipH=42*dpr;
+  patches.slice(0,6).forEach((p,i)=>{ c.fillStyle=`rgb(${Math.round(p.r)},${Math.round(p.g)},${Math.round(p.b)})`; roundRect(c,x+i*(chipW+7*dpr),y,chipW,chipH,12*dpr); c.fill(); c.strokeStyle='rgba(255,255,255,.20)'; c.stroke(); });
+  drawMetricLabel(c,'sampled face colors',x,y+chipH+22*dpr);
+}
+function drawSymmetryVisual(c,fit,A,metric){
+  const s=(state.metric.slider||50)/100;
+  const mid=fit.x+fit.w/2;
+  c.save(); c.beginPath(); c.rect(mid,fit.y,fit.w/2,fit.h); c.clip(); c.globalAlpha=.78;
+  if(s<.5){ c.translate(mid*2,0); c.scale(-1,1); c.drawImage(A.img,fit.x,fit.y,fit.w,fit.h); }
+  else { c.translate(mid*2,0); c.scale(-1,1); c.drawImage(A.img,fit.x-fit.w/2,fit.y,fit.w,fit.h); }
+  c.restore();
+  drawMetricLine(c,{x:mid,y:fit.y},{x:mid,y:fit.y+fit.h},'#ffffff',2.5);
+  drawMetricLabel(c,'mirrored comparison',mid+10*(devicePixelRatio||1),fit.y+26*(devicePixelRatio||1));
+  drawSymmetry(c, fit, A);
+}
+function drawHarmonyVisual(c,fit,A,metric){
+  c.fillStyle='rgba(0,0,0,.32)'; c.fillRect(0,0,fit.cw,fit.ch);
+  drawProportions(c,fit,A);
+  const dpr=devicePixelRatio||1, x=18*dpr, y=fit.ch-104*dpr, w=fit.cw-36*dpr;
+  const rows=[['Symmetry',findMetricScore('Facial symmetry')],['Thirds',findMetricScore('Facial thirds')],['Eyes',findMetricScore('Eyes')],['Jaw',findMetricScore('Jawline')]];
+  rows.forEach((r,i)=>{ const yy=y+i*23*dpr; c.fillStyle='rgba(255,255,255,.10)'; roundRect(c,x+70*dpr,yy,w-86*dpr,9*dpr,5*dpr); c.fill(); c.fillStyle='#dfe8f6'; c.font=`${10*dpr}px Inter, system-ui`; c.fillText(r[0],x,yy+8*dpr); c.fillStyle=i===0?'#8ad8ff':'#f2cf78'; roundRect(c,x+70*dpr,yy,(w-86*dpr)*clamp((r[1]||0)/10,0,1),9*dpr,5*dpr); c.fill(); });
+  drawMetricLabel(c,'balance bars: current structure',x,y-12*dpr);
+}
+function findMetricScore(name){ const m=state.analysis?.features?.find(x=>x.name===name); return m?.score || 0; }
+function drawRegionVisual(c,fit,A,metric,label,indices){
+  c.fillStyle='rgba(0,0,0,.26)'; c.fillRect(0,0,fit.cw,fit.ch);
+  const pts=indices.map(i=>metricToC(pointAt(A.lm,i,A.img),fit));
+  c.save(); c.strokeStyle='#f2cf78'; c.lineWidth=3*(devicePixelRatio||1); c.lineJoin='round'; c.beginPath(); pts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)); c.stroke(); c.restore(); pts.forEach(p=>drawMetricDot(c,p,'#8ad8ff',4));
+  drawMetricLabel(c,label,pts[0].x,pts[0].y-24*(devicePixelRatio||1));
+}
+function drawGenericVisual(c,fit,A,metric){
+  c.fillStyle='rgba(0,0,0,.28)'; c.fillRect(0,0,fit.cw,fit.ch);
+  drawGapHeat(c, fit, A);
+  drawMetricLabel(c,`${metric.name}: ${Number.isFinite(metric.score)?fmt(metric.score):'—'}`,fit.x+16*(devicePixelRatio||1),fit.y+28*(devicePixelRatio||1));
+}
+function showMetricOnFace(metric){
+  const kind=metricVisualKind(metric.name);
+  const target = kind==='symmetry' ? 'symmetry' : kind==='skin' || kind==='generic' ? 'heat' : 'proportions';
+  state.overlay = target;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.overlay===target));
+  closeMetricSheet();
+  switchScreen('home');
+  setTimeout(()=>{ if(state.slots.front) toggleInspectMode(true); }, 80);
 }
 function renderCurve(){
   if(!state.analysis) return;

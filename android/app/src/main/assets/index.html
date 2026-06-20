@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#06070a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -49,6 +49,7 @@
             </div>
             <div id="scoreRange" class="score-range">Add a front photo to start</div>
             <p id="verdictText" class="verdict-text">Aestra analyzes proportions, symmetry, pose quality, and visible feature signals without pretending bad photos are truth.</p>
+            <div class="hero-action-row"><button id="homeAnalyzeBtn" class="primary" type="button" disabled>Analyze</button><button id="homeResetBtn" class="ghost" type="button">Reset</button></div>
           </div>
 
           <div class="mini-stats">
@@ -63,11 +64,11 @@
           <div class="section-head compact viewer-topline">
             <div>
               <h2>Face viewer</h2>
-              <p id="viewerSub">Pinch to zoom. Drag to inspect without stretching the image.</p>
+              <p id="viewerSub">Tap the image to open locked Inspect mode. Scrolling stays page-native.</p>
             </div>
             <div class="viewer-actions">
               <button id="fitViewerBtn" class="ghost small" type="button">Fit</button>
-              <button id="inspectBtn" class="ghost small" type="button">Inspect</button>
+              <button id="inspectBtn" class="ghost small" type="button">Open</button>
             </div>
           </div>
           <div id="poseBadge" class="pose-badge hidden">roll 0.0° · yaw low</div>
@@ -84,7 +85,7 @@
               <strong>No front photo yet</strong>
               <span>Open Capture, take a camera photo, then Aestra will analyze it.</span>
             </div>
-            <div id="viewerHint" class="viewer-hint hidden">Pinch · drag · double-tap reset</div>
+            <div id="viewerHint" class="viewer-hint hidden">Inspect mode · pinch · drag · double-tap reset</div>
           </div>
         </section>
 
@@ -219,6 +220,30 @@
     </div>
   </div>
 
+
+  <div id="metricSheet" class="metric-sheet hidden" aria-hidden="true">
+    <div class="metric-sheet-card">
+      <div class="sheet-grip"></div>
+      <div class="metric-sheet-head">
+        <div>
+          <span id="metricSheetCategory" class="eyebrow">Metric visual</span>
+          <h2 id="metricSheetTitle">Metric</h2>
+          <p id="metricSheetSubtitle">Tap a metric to see the visual explanation.</p>
+        </div>
+        <button id="metricSheetCloseBtn" class="ghost icon-btn" type="button">×</button>
+      </div>
+      <canvas id="metricVisualCanvas"></canvas>
+      <div id="metricCompareWrap" class="compare-wrap hidden">
+        <span>Current</span><input id="metricCompareSlider" type="range" min="0" max="100" value="50" /><span>Target</span>
+      </div>
+      <div id="metricVisualText" class="metric-visual-text"></div>
+      <div class="metric-sheet-actions">
+        <button id="metricOverlayBtn" class="ghost" type="button">Show on face</button>
+        <button id="metricSheetDoneBtn" class="primary" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <div class="mobile-action-bar">
@@ -228,9 +253,9 @@
 
   <nav class="bottom-tabs" aria-label="App tabs">
     <button class="bottom-tab active" data-go="home" type="button"><span>⌂</span><b>Home</b></button>
-    <button class="bottom-tab" data-go="capture" type="button"><span>◉</span><b>Capture</b></button>
-    <button class="bottom-tab" data-go="detail" type="button"><span>◇</span><b>Detail</b></button>
-    <button class="bottom-tab" data-go="breakdown" type="button"><span>≡</span><b>Metrics</b></button>
+    <button class="bottom-tab" data-go="capture" type="button"><span>◎</span><b>Scan</b></button>
+    <button class="bottom-tab" data-go="detail" type="button"><span>✦</span><b>Visuals</b></button>
+    <button class="bottom-tab" data-go="breakdown" type="button"><span>▤</span><b>Metrics</b></button>
     <button class="bottom-tab" data-go="plan" type="button"><span>↗</span><b>Plan</b></button>
   </nav>
 
