@@ -1,9 +1,6 @@
 {
-  "name": "aesthetica-reborn-android",
+  "name": "aesthetica-reborn-android-webview",
   "version": "1.0.0",
   "private": true,
-  "description": "Aesthetica Reborn Android APK project. No npm install required for GitHub Actions build.",
-  "scripts": {
-    "build:android": "cd android && ./gradlew assembleDebug"
-  }
+  "description": "Native Android WebView wrapper for Aesthetica Reborn. No npm build needed."
 }

@@ -1,23 +1,20 @@
-# Aesthetica Reborn Android
+# Aesthetica Reborn Android WebView Build
 
-This repo is set up to build the Aesthetica Reborn Android APK through GitHub Actions **without npm, pnpm, Node installs, Android Studio, or local Android SDK downloads**.
+This is the simplified Android package.
 
-## Build APK
+- No npm
+- No pnpm
+- No Node dependency install
+- No Capacitor sync
+- No gradlew requirement
 
-1. Push this repo to GitHub.
-2. Open GitHub → **Actions**.
-3. Run **Build Android APK**.
-4. Download the artifact named `aesthetica-reborn-debug-apk`.
-5. Inside is `app-debug.apk`.
+The Android app is a native WebView wrapper loading the same Aesthetica Reborn web app from Android assets.
 
-## Why this version is simpler
+## Build on GitHub
 
-- The web app is already bundled into `android/app/src/main/assets/public/`.
-- Capacitor Android is vendored into `android/capacitor-android/`.
-- The workflow runs only Gradle in GitHub's cloud runner.
-- No `npm install`, no `pnpm`, no Node version problems.
+1. Upload the **contents** of this folder to the repository root.
+2. Go to Actions → Build Android APK → Run workflow.
+3. Download the `aesthetica-reborn-debug-apk` artifact.
+4. Install the APK on Android.
 
-## Notes
-
-- The APK is a debug APK for personal install/testing.
-- The app still needs internet for MediaPipe model/CDN files on first analysis.
+The first real analysis still needs internet because MediaPipe loads model/runtime files from web CDNs.

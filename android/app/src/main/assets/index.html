@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07080b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Aesthetica Reborn — Serious Visual Aesthetics Analyzer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div>
+          <h1>Aesthetica Reborn</h1>
+          <p>Serious facial aesthetics analysis · pose-aware overlays · grounded scoring</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <select id="modeSelect" title="Aesthetic target mode">
+          <option value="balanced">Balanced</option>
+          <option value="masculine">Masculine</option>
+          <option value="feminine">Feminine</option>
+        </select>
+        <select id="strictnessSelect" title="Rating strictness">
+          <option value="strict">Strict</option>
+          <option value="normal" selected>Normal</option>
+          <option value="generous">Generous</option>
+        </select>
+        <button id="resetImagesBtn" class="ghost">Reset images</button>
+        <button id="fullResetBtn" class="ghost danger">Full reset</button>
+        <button id="installBtn" class="ghost hidden">Install</button>
+        <button id="analyzeBtn" class="primary" disabled>Analyze</button>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="left-column">
+        <div class="upload-strip" id="uploadStrip">
+          <label class="upload-card required" data-slot="front">
+            <input id="frontInput" type="file" accept="image/*" />
+            <span>Front face</span><small>required · camera or gallery</small>
+          </label>
+          <label class="upload-card" data-slot="profile">
+            <input id="profileInput" type="file" accept="image/*" />
+            <span>Side profile</span><small>optional · camera or gallery</small>
+          </label>
+          <label class="upload-card" data-slot="bodyFront">
+            <input id="bodyFrontInput" type="file" accept="image/*" />
+            <span>Body front</span><small>optional · frame/posture</small>
+          </label>
+          <label class="upload-card" data-slot="bodySide">
+            <input id="bodySideInput" type="file" accept="image/*" />
+            <span>Body side</span><small>optional · silhouette/posture</small>
+          </label>
+        </div>
+
+        <div class="viewer-card">
+          <div class="viewer-head">
+            <div>
+              <h2>Visual analysis</h2>
+              <p id="viewerSub">Upload a clear front-facing image. Overlays use face-local axes, not screen horizontals.</p>
+            </div>
+            <div class="overlay-tabs" role="tablist">
+              <button class="tab active" data-overlay="proportions">Proportions</button>
+              <button class="tab" data-overlay="symmetry">Symmetry</button>
+              <button class="tab" data-overlay="heat">Gaps</button>
+              <button class="tab" data-overlay="mesh">Mesh</button>
+              <button class="tab" data-overlay="clean">Clean</button>
+            </div>
+          </div>
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="imageCanvas"></canvas>
+            <div id="dropHint" class="drop-hint">
+              <strong>Drop or upload a front-face photo</strong>
+              <span>Best input: neutral expression, lens not too wide, camera near eye height.</span>
+            </div>
+            <div id="poseBadge" class="pose-badge hidden">roll 0.0° · yaw low</div>
+          </div>
+        </div>
+
+        <div class="compact-row">
+          <div class="panel mini-panel">
+            <div class="panel-head"><h3>Distribution curve</h3><span id="percentileLabel">—</span></div>
+            <canvas id="curveCanvas" height="135"></canvas>
+          </div>
+          <div class="panel mini-panel">
+            <div class="panel-head"><h3>Radar profile</h3><span id="radarLabel">—</span></div>
+            <canvas id="radarCanvas" height="135"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right-column">
+        <section class="verdict-card">
+          <div class="score-line">
+            <div>
+              <span class="eyebrow">Final estimate</span>
+              <div id="mainScore" class="main-score">—</div>
+              <div id="scoreRange" class="score-range">Upload image to analyze</div>
+            </div>
+            <div id="qualityRing" class="quality-ring" style="--q:0"><span>—</span><small>conf</small></div>
+          </div>
+          <div id="verdictText" class="verdict-text">No score yet. The app separates actual estimate from photo validity, pose, expression, and crop quality.</div>
+          <div class="stat-grid">
+            <div><span>Percentile</span><b id="percentileStat">—</b></div>
+            <div><span>Photo validity</span><b id="validityStat">—</b></div>
+            <div><span>Pose usability</span><b id="poseStat">—</b></div>
+            <div><span>Coverage</span><b id="coverageStat">0/4</b></div>
+          </div>
+        </section>
+
+        <section class="panel tight-panel">
+          <div class="panel-head"><h3>Big gaps</h3><span>highest leverage</span></div>
+          <div id="gapList" class="chip-list empty">Waiting for analysis.</div>
+        </section>
+
+        <section class="panel tight-panel">
+          <div class="panel-head"><h3>Strengths</h3><span>score anchors</span></div>
+          <div id="strengthList" class="chip-list empty">Waiting for analysis.</div>
+        </section>
+
+        <section class="panel tight-panel">
+          <div class="panel-head"><h3>Score audit</h3><span>no hidden magic</span></div>
+          <div id="auditGrid" class="audit-grid"></div>
+        </section>
+      </aside>
+    </main>
+
+    <section class="below-grid">
+      <section class="panel full-span">
+        <div class="panel-head sticky-head">
+          <div>
+            <h3>Feature breakdown</h3>
+            <p>Every rating has confidence, measured signal, and practical interpretation.</p>
+          </div>
+          <div class="search-controls">
+            <input id="metricSearch" type="search" placeholder="Filter: eyes, jaw, nose..." />
+            <select id="categoryFilter">
+              <option value="all">All categories</option>
+              <option value="structure">Structure</option>
+              <option value="eyes">Eyes</option>
+              <option value="nose-mouth">Nose / mouth</option>
+              <option value="lower-face">Lower face</option>
+              <option value="skin-photo">Skin / photo</option>
+              <option value="profile-body">Profile / body</option>
+            </select>
+          </div>
+        </div>
+        <div id="featureGrid" class="feature-grid empty-state">Run analysis to populate the breakdown.</div>
+      </section>
+
+      <section class="panel playbook-panel">
+        <div class="panel-head">
+          <div><h3>Improvement playbook</h3><p>Focused, practical takeaways instead of fake transformations.</p></div>
+        </div>
+        <div id="playbookList" class="playbook-list empty">Analysis required.</div>
+      </section>
+
+      <section class="panel model-panel">
+        <div class="panel-head"><div><h3>Face model & analysis notes</h3><p>2.5D landmark relief with measurement context and reliability notes.</p></div></div>
+        <div class="model-layout">
+          <canvas id="modelCanvas"></canvas>
+          <div id="modelNotes" class="note-list empty">Analysis required.</div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <div class="mobile-action-bar">
+    <button id="mobileResetBtn" class="ghost">Reset images</button>
+    <button id="mobileAnalyzeBtn" class="primary" disabled>Analyze</button>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

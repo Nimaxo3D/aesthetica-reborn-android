@@ -12,29 +12,30 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 17
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Verify project layout
-        run: |
-          test -f android/gradlew
-          test -f android/settings.gradle
-          test -f android/capacitor-android/capacitor/build.gradle
-          test -f android/app/src/main/assets/public/index.html
-          echo "Project layout OK"
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Make Gradle executable
-        run: chmod +x android/gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.12
+
+      - name: Show project files
+        run: |
+          echo "Root:" && ls -la
+          echo "Android app:" && find android/app/src/main -maxdepth 3 -type f | sort | head -100
 
       - name: Build debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
+        run: gradle -p android :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

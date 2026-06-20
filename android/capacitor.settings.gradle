@@ -1,4 +1,0 @@
-// Vendored Capacitor Android module.
-// This avoids npm/pnpm installs in GitHub Actions.
-include ':capacitor-android'
-project(':capacitor-android').projectDir = new File('./capacitor-android/capacitor')
