@@ -3,4 +3,6 @@ node_modules/
 *.aab
 android/.gradle/
 android/app/build/
+android/build/
+dist/**/*.map
 .DS_Store
