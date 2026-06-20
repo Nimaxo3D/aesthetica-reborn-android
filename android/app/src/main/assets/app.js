@@ -76,7 +76,8 @@ const els = {
   metricSearch: $("metricSearch"), categoryFilter: $("categoryFilter"), playbookList: $("playbookList"),
   modelCanvas: $("modelCanvas"), modelNotes: $("modelNotes"), toast: $("toast"), installBtn: $("installBtn"), mobileAnalyzeBtn: $("mobileAnalyzeBtn"), mobileResetBtn: $("mobileResetBtn"),
   uploadSummary: $("uploadSummary"), frontPreview: $("frontPreview"), profilePreview: $("profilePreview"), bodyFrontPreview: $("bodyFrontPreview"), bodySidePreview: $("bodySidePreview"),
-  appStatus: $("appStatus"), cameraModal: $("cameraModal"), cameraVideo: $("cameraVideo"), cameraCanvas: $("cameraCanvas"), cameraTitle: $("cameraTitle"), cameraHint: $("cameraHint"), cameraCloseBtn: $("cameraCloseBtn"), cameraCaptureBtn: $("cameraCaptureBtn"), cameraSwitchBtn: $("cameraSwitchBtn"), cameraFallbackBtn: $("cameraFallbackBtn")
+  appStatus: $("appStatus"), cameraModal: $("cameraModal"), cameraVideo: $("cameraVideo"), cameraCanvas: $("cameraCanvas"), cameraTitle: $("cameraTitle"), cameraHint: $("cameraHint"), cameraCloseBtn: $("cameraCloseBtn"), cameraCaptureBtn: $("cameraCaptureBtn"), cameraSwitchBtn: $("cameraSwitchBtn"), cameraFallbackBtn: $("cameraFallbackBtn"),
+  inspectBtn: $("inspectBtn"), fitViewerBtn: $("fitViewerBtn"), viewerHint: $("viewerHint")
 };
 const ctx = els.canvas.getContext("2d");
 const curveCtx = els.curveCanvas.getContext("2d");
@@ -87,7 +88,8 @@ const state = {
   slots:{ front:null, profile:null, bodyFront:null, bodySide:null },
   faceLandmarker:null, poseLandmarker:null, ready:false, busy:false,
   overlay:"proportions", fit:null, analysis:null, deferredInstallPrompt:null,
-  activeScreen:"home", camera:{stream:null, slot:null, facingMode:"user"}, autoAnalyzeTimer:null
+  activeScreen:"home", camera:{stream:null, slot:null, facingMode:"user"}, autoAnalyzeTimer:null,
+  viewer:{zoom:1, panX:0, panY:0, dragging:false, lastX:0, lastY:0, lastDist:0, lastCX:0, lastCY:0, lastTap:0}
 };
 
 
@@ -166,7 +168,7 @@ function setSlot(slot, data){
   updateUploadSummary();
   updateAnalyzeEnabled();
   clearAnalysis(false);
-  if (slot === "front") drawViewer();
+  if (slot === "front") { resetViewerTransform(); drawViewer(); }
   if (state.slots.front) {
     clearTimeout(state.autoAnalyzeTimer);
     state.autoAnalyzeTimer = setTimeout(()=>{ if(state.slots.front && !state.busy) analyze(); }, 520);
@@ -228,6 +230,83 @@ function switchCamera(){
   state.camera.facingMode = state.camera.facingMode === 'user' ? 'environment' : 'user';
   startCameraStream();
 }
+
+function resetViewerTransform(){
+  state.viewer.zoom = 1;
+  state.viewer.panX = 0;
+  state.viewer.panY = 0;
+  drawViewer();
+}
+function toggleInspectMode(){
+  const entering = !document.body.classList.contains('viewer-inspect');
+  document.body.classList.toggle('viewer-inspect', entering);
+  if(els.inspectBtn) els.inspectBtn.textContent = entering ? 'Close' : 'Inspect';
+  if(entering) switchScreen('home');
+  requestAnimationFrame(()=>{ drawViewer(); });
+}
+function touchCenter(touches){
+  const r = els.wrap.getBoundingClientRect();
+  if(touches.length >= 2){
+    return {x:((touches[0].clientX + touches[1].clientX)/2)-r.left, y:((touches[0].clientY + touches[1].clientY)/2)-r.top};
+  }
+  return {x:touches[0].clientX-r.left, y:touches[0].clientY-r.top};
+}
+function touchDistance(touches){
+  if(touches.length < 2) return 0;
+  return Math.hypot(touches[0].clientX-touches[1].clientX, touches[0].clientY-touches[1].clientY);
+}
+function bindViewerGestures(){
+  if(!els.wrap) return;
+  els.fitViewerBtn?.addEventListener('click', resetViewerTransform);
+  els.inspectBtn?.addEventListener('click', toggleInspectMode);
+  els.wrap.addEventListener('touchstart', (e)=>{
+    if(!state.slots.front) return;
+    e.preventDefault();
+    if(els.viewerHint) els.viewerHint.classList.remove('hidden');
+    if(e.touches.length === 1){
+      const now = Date.now();
+      if(now - state.viewer.lastTap < 280){ resetViewerTransform(); state.viewer.lastTap = 0; return; }
+      state.viewer.lastTap = now;
+      const p = touchCenter(e.touches);
+      state.viewer.dragging = true; state.viewer.lastX = p.x; state.viewer.lastY = p.y;
+    } else if(e.touches.length >= 2){
+      const p = touchCenter(e.touches);
+      state.viewer.dragging = false; state.viewer.lastDist = touchDistance(e.touches); state.viewer.lastCX = p.x; state.viewer.lastCY = p.y;
+    }
+  }, {passive:false});
+  els.wrap.addEventListener('touchmove', (e)=>{
+    if(!state.slots.front) return;
+    e.preventDefault();
+    if(e.touches.length >= 2){
+      const d = touchDistance(e.touches); const p = touchCenter(e.touches);
+      if(state.viewer.lastDist){
+        const oldZoom = state.viewer.zoom;
+        const nextZoom = clamp(oldZoom * (d / state.viewer.lastDist), 1, 5.2);
+        state.viewer.zoom = nextZoom;
+        state.viewer.panX += (p.x - state.viewer.lastCX);
+        state.viewer.panY += (p.y - state.viewer.lastCY);
+      }
+      state.viewer.lastDist = d; state.viewer.lastCX = p.x; state.viewer.lastCY = p.y;
+    } else if(e.touches.length === 1 && state.viewer.dragging){
+      const p = touchCenter(e.touches);
+      state.viewer.panX += (p.x - state.viewer.lastX);
+      state.viewer.panY += (p.y - state.viewer.lastY);
+      state.viewer.lastX = p.x; state.viewer.lastY = p.y;
+    }
+    drawViewer();
+  }, {passive:false});
+  els.wrap.addEventListener('touchend', ()=>{
+    state.viewer.dragging = false; state.viewer.lastDist = 0;
+    clearTimeout(bindViewerGestures._hintTimer);
+    bindViewerGestures._hintTimer = setTimeout(()=>els.viewerHint?.classList.add('hidden'), 1400);
+  });
+  els.wrap.addEventListener('wheel', (e)=>{
+    if(!state.slots.front) return;
+    e.preventDefault();
+    state.viewer.zoom = clamp(state.viewer.zoom * (e.deltaY < 0 ? 1.08 : .92), 1, 5.2);
+    drawViewer();
+  }, {passive:false});
+}
 function switchScreen(name){
   state.activeScreen = name;
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.dataset.screen === name));
@@ -269,8 +348,10 @@ els.fullResetBtn.addEventListener("click", fullReset);
 els.metricSearch.addEventListener("input", renderFeatureGrid);
 els.categoryFilter.addEventListener("change", renderFeatureGrid);
 window.addEventListener("resize", () => { drawViewer(); renderModel(); renderCurve(); renderRadar(); });
-els.wrap.addEventListener("dragover", e=>{e.preventDefault(); els.wrap.classList.add("drag");});
-els.wrap.addEventListener("drop", async e=>{ e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f) setSlot("front", await loadImageFile(f)); });
+if (!('ontouchstart' in window)) {
+  els.wrap.addEventListener("dragover", e=>{e.preventDefault(); els.wrap.classList.add("drag");});
+  els.wrap.addEventListener("drop", async e=>{ e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f) setSlot("front", await loadImageFile(f)); });
+}
 
 function resetImages(){
   for (const k of Object.keys(state.slots)) { if (state.slots[k]?.url && state.slots[k].url.startsWith('blob:')) URL.revokeObjectURL(state.slots[k].url); state.slots[k]=null; updateSlotPreview(k, null); }
@@ -643,20 +724,31 @@ function scoreModel(features, q, raw){
 function renderAll(){ drawViewer(); renderVerdict(); renderLists(); renderAudit(); renderFeatureGrid(); renderCurve(); renderRadar(); renderPlaybook(); renderModel(); }
 function fitCanvas(canvas, img){
   const wrap = canvas.parentElement; const dpr = devicePixelRatio || 1;
-  const rect = wrap.getBoundingClientRect(); canvas.width = Math.max(2, Math.floor(rect.width*dpr)); canvas.height = Math.max(2, Math.floor(rect.height*dpr));
-  canvas.style.width = `${rect.width}px`; canvas.style.height = `${rect.height}px`;
-  const scale = Math.min(canvas.width/img.naturalWidth, canvas.height/img.naturalHeight);
+  const rect = wrap.getBoundingClientRect();
+  const cssW = Math.max(2, rect.width), cssH = Math.max(2, rect.height);
+  canvas.width = Math.max(2, Math.floor(cssW*dpr)); canvas.height = Math.max(2, Math.floor(cssH*dpr));
+  canvas.style.width = `${cssW}px`; canvas.style.height = `${cssH}px`;
+  const baseScale = Math.min(canvas.width/img.naturalWidth, canvas.height/img.naturalHeight);
+  const scale = baseScale * state.viewer.zoom;
   const w = img.naturalWidth*scale, h = img.naturalHeight*scale;
-  return {x:(canvas.width-w)/2,y:(canvas.height-h)/2,w,h,scale,dpr,cw:canvas.width,ch:canvas.height};
+  const maxPanX = Math.max(0, (w - canvas.width) / (2*dpr) + 70);
+  const maxPanY = Math.max(0, (h - canvas.height) / (2*dpr) + 70);
+  state.viewer.panX = clamp(state.viewer.panX, -maxPanX, maxPanX);
+  state.viewer.panY = clamp(state.viewer.panY, -maxPanY, maxPanY);
+  return {x:(canvas.width-w)/2 + state.viewer.panX*dpr, y:(canvas.height-h)/2 + state.viewer.panY*dpr, w,h,scale,dpr,cw:canvas.width,ch:canvas.height, zoom:state.viewer.zoom};
 }
 function drawViewer(){
   const slot = state.slots.front;
   if (!slot){
-    const r = els.wrap.getBoundingClientRect(), dpr = devicePixelRatio || 1; els.canvas.width=r.width*dpr; els.canvas.height=r.height*dpr; ctx.clearRect(0,0,els.canvas.width,els.canvas.height); els.dropHint.classList.remove("hidden"); return;
+    const r = els.wrap.getBoundingClientRect(), dpr = devicePixelRatio || 1; els.canvas.width=Math.max(2,r.width*dpr); els.canvas.height=Math.max(2,r.height*dpr); ctx.clearRect(0,0,els.canvas.width,els.canvas.height); els.dropHint.classList.remove("hidden"); els.viewerHint?.classList.add('hidden'); return;
   }
   const img = slot.img; const fit = fitCanvas(els.canvas,img); state.fit = fit;
-  ctx.clearRect(0,0,fit.cw,fit.ch); ctx.fillStyle="#050609"; ctx.fillRect(0,0,fit.cw,fit.ch); ctx.drawImage(img, fit.x, fit.y, fit.w, fit.h);
+  ctx.clearRect(0,0,fit.cw,fit.ch);
+  const g = ctx.createLinearGradient(0,0,0,fit.ch); g.addColorStop(0,"#030407"); g.addColorStop(1,"#090d14"); ctx.fillStyle=g; ctx.fillRect(0,0,fit.cw,fit.ch);
+  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, fit.x, fit.y, fit.w, fit.h); ctx.restore();
+  ctx.strokeStyle = "rgba(255,255,255,.10)"; ctx.lineWidth = 1*(fit.dpr||1); ctx.strokeRect(fit.x, fit.y, fit.w, fit.h);
   els.dropHint.classList.add("hidden");
+  if(els.viewerHint && state.viewer.zoom > 1.01) els.viewerHint.textContent = `${fmt(state.viewer.zoom,1)}× · drag to move · double-tap reset`;
   if (state.analysis) drawOverlay(ctx, fit, state.analysis.front, state.overlay);
 }
 function toC(p, fit){ return {x:fit.x + p.x*fit.scale, y:fit.y + p.y*fit.scale}; }
@@ -875,4 +967,5 @@ function renderModelNotes(){
 
 // Initial state
 registerPwaSupport();
+bindViewerGestures();
 clearAnalysis(false); drawViewer(); updateUploadSummary(); updateAnalyzeEnabled(); switchScreen('home');

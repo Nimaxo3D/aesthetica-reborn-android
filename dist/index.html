@@ -60,13 +60,17 @@
         </section>
 
         <section class="viewer-card" id="analysisSection">
-          <div class="section-head compact">
+          <div class="section-head compact viewer-topline">
             <div>
               <h2>Face viewer</h2>
-              <p id="viewerSub">Your analyzed face appears here with mobile-friendly overlays.</p>
+              <p id="viewerSub">Pinch to zoom. Drag to inspect without stretching the image.</p>
             </div>
-            <div id="poseBadge" class="pose-badge hidden">roll 0.0° · yaw low</div>
+            <div class="viewer-actions">
+              <button id="fitViewerBtn" class="ghost small" type="button">Fit</button>
+              <button id="inspectBtn" class="ghost small" type="button">Inspect</button>
+            </div>
           </div>
+          <div id="poseBadge" class="pose-badge hidden">roll 0.0° · yaw low</div>
           <div class="overlay-tabs" role="tablist">
             <button class="tab active" data-overlay="proportions">Proportions</button>
             <button class="tab" data-overlay="symmetry">Symmetry</button>
@@ -80,6 +84,7 @@
               <strong>No front photo yet</strong>
               <span>Open Capture, take a camera photo, then Aestra will analyze it.</span>
             </div>
+            <div id="viewerHint" class="viewer-hint hidden">Pinch · drag · double-tap reset</div>
           </div>
         </section>
 
@@ -192,6 +197,7 @@
         </section>
       </section>
     </main>
+    <div class="safe-scroll-space" aria-hidden="true"></div>
   </div>
 
   <div id="cameraModal" class="camera-modal hidden" aria-hidden="true">

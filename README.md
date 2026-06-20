@@ -1,19 +1,20 @@
-# Aestra Android
+# Aestra Android Build
 
-Mobile-first Android WebView build of the Aestra facial aesthetics analyzer.
+Aestra is a mobile-first Android WebView app for visual aesthetics analysis.
 
-This project intentionally avoids npm/pnpm/Capacitor during CI. GitHub Actions builds the Android APK directly with Gradle.
+This package intentionally keeps the build chain simple:
 
-## Build
+- no npm install
+- no pnpm
+- no Capacitor sync
+- no Gradle wrapper requirement
+- GitHub Actions builds the APK directly with Gradle
 
-1. Push the repo to GitHub.
-2. Open **Actions**.
-3. Run **Build Android APK**.
-4. Download the uploaded APK artifact.
+## Build on GitHub
 
-## Notes
+1. Upload the **contents** of this folder to the repository root.
+2. Go to **Actions → Build Aestra APK → Run workflow**.
+3. Download the `aestra-debug-apk` artifact.
+4. Install the APK on Android.
 
-- Main app UI is mobile-first and tab-based.
-- In-app camera is supported through Android WebView camera permissions and `getUserMedia`.
-- Gallery fallback still works.
-- The analysis core still uses MediaPipe models loaded from the network on first use.
+The first analysis needs internet because MediaPipe loads model/runtime files from official CDN URLs.
