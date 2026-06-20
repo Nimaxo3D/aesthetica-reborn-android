@@ -74,7 +74,8 @@ const els = {
   gapList: $("gapList"), strengthList: $("strengthList"), auditGrid: $("auditGrid"), featureGrid: $("featureGrid"),
   curveCanvas: $("curveCanvas"), radarCanvas: $("radarCanvas"), percentileLabel: $("percentileLabel"), radarLabel: $("radarLabel"),
   metricSearch: $("metricSearch"), categoryFilter: $("categoryFilter"), playbookList: $("playbookList"),
-  modelCanvas: $("modelCanvas"), modelNotes: $("modelNotes"), toast: $("toast"), installBtn: $("installBtn"), mobileAnalyzeBtn: $("mobileAnalyzeBtn"), mobileResetBtn: $("mobileResetBtn")
+  modelCanvas: $("modelCanvas"), modelNotes: $("modelNotes"), toast: $("toast"), installBtn: $("installBtn"), mobileAnalyzeBtn: $("mobileAnalyzeBtn"), mobileResetBtn: $("mobileResetBtn"),
+  uploadSummary: $("uploadSummary"), frontPreview: $("frontPreview"), profilePreview: $("profilePreview"), bodyFrontPreview: $("bodyFrontPreview"), bodySidePreview: $("bodySidePreview")
 };
 const ctx = els.canvas.getContext("2d");
 const curveCtx = els.curveCanvas.getContext("2d");
@@ -120,10 +121,36 @@ async function loadImageFile(file){
     img.src = url;
   });
 }
+
+function inputForSlot(slot){ return ({front:els.frontInput, profile:els.profileInput, bodyFront:els.bodyFrontInput, bodySide:els.bodySideInput})[slot]; }
+function previewForSlot(slot){ return ({front:els.frontPreview, profile:els.profilePreview, bodyFront:els.bodyFrontPreview, bodySide:els.bodySidePreview})[slot]; }
+function updateUploadSummary(){
+  if(!els.uploadSummary) return;
+  const count = Object.values(state.slots).filter(Boolean).length;
+  els.uploadSummary.textContent = `${count} / 4 loaded`;
+}
+function updateSlotPreview(slot, data){
+  const img = previewForSlot(slot);
+  if(!img) return;
+  if(data?.url){ img.src = data.url; img.style.display='block'; }
+  else { img.removeAttribute('src'); img.style.display=''; }
+}
+function triggerSlotInput(slot, source){
+  const input = inputForSlot(slot); if(!input) return;
+  input.setAttribute('accept','image/*');
+  if(source === 'camera') {
+    input.setAttribute('capture', slot === 'bodyFront' || slot === 'bodySide' ? 'environment' : 'user');
+  } else {
+    input.removeAttribute('capture');
+  }
+  input.click();
+}
 function setSlot(slot, data){
   if (state.slots[slot]?.url) URL.revokeObjectURL(state.slots[slot].url);
   state.slots[slot] = data;
   document.querySelector(`.upload-card[data-slot="${slot}"]`)?.classList.toggle("loaded", !!data);
+  updateSlotPreview(slot, data);
+  updateUploadSummary();
   updateAnalyzeEnabled();
   clearAnalysis(false);
   if (slot === "front") drawViewer();
@@ -139,6 +166,11 @@ els.frontInput.addEventListener("change", e=>handleFile("front", e.target));
 els.profileInput.addEventListener("change", e=>handleFile("profile", e.target));
 els.bodyFrontInput.addEventListener("change", e=>handleFile("bodyFront", e.target));
 els.bodySideInput.addEventListener("change", e=>handleFile("bodySide", e.target));
+for (const btn of document.querySelectorAll('.upload-trigger')) btn.addEventListener('click', ()=> triggerSlotInput(btn.dataset.slot, btn.dataset.source));
+for (const btn of document.querySelectorAll('.nav-jump')) btn.addEventListener('click', ()=> {
+  document.querySelectorAll('.nav-jump').forEach(b=>b.classList.toggle('active', b===btn));
+  document.getElementById(btn.dataset.target)?.scrollIntoView({behavior:'smooth', block:'start'});
+});
 for (const btn of document.querySelectorAll(".tab")) btn.addEventListener("click", () => { document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); state.overlay = btn.dataset.overlay; drawViewer(); });
 els.modeSelect.addEventListener("change", ()=> state.analysis && analyze());
 els.strictnessSelect.addEventListener("change", ()=> state.analysis && analyze());
@@ -154,9 +186,10 @@ els.wrap.addEventListener("dragover", e=>{e.preventDefault(); els.wrap.classList
 els.wrap.addEventListener("drop", async e=>{ e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f) setSlot("front", await loadImageFile(f)); });
 
 function resetImages(){
-  for (const k of Object.keys(state.slots)) { if (state.slots[k]?.url) URL.revokeObjectURL(state.slots[k].url); state.slots[k]=null; }
+  for (const k of Object.keys(state.slots)) { if (state.slots[k]?.url) URL.revokeObjectURL(state.slots[k].url); state.slots[k]=null; updateSlotPreview(k, null); }
   for (const input of [els.frontInput, els.profileInput, els.bodyFrontInput, els.bodySideInput]) input.value = "";
   document.querySelectorAll(".upload-card").forEach(c=>c.classList.remove("loaded","error"));
+  updateUploadSummary();
   clearAnalysis(true); updateAnalyzeEnabled(); drawViewer(); toast("Images cleared.");
 }
 function fullReset(){
@@ -754,4 +787,4 @@ function renderModelNotes(){
 
 // Initial state
 registerPwaSupport();
-clearAnalysis(false); drawViewer(); updateAnalyzeEnabled();
+clearAnalysis(false); drawViewer(); updateUploadSummary(); updateAnalyzeEnabled();

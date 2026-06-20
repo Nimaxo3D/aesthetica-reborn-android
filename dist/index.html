@@ -16,7 +16,7 @@
       <div class="brand">
         <div>
           <h1>Aesthetica Reborn</h1>
-          <p>Serious facial aesthetics analysis · pose-aware overlays · grounded scoring</p>
+          <p>Mobile-first facial aesthetics analysis with camera upload, grounded scoring, and visual overlays.</p>
         </div>
       </div>
       <div class="top-actions">
@@ -37,28 +37,44 @@
       </div>
     </header>
 
+    <section class="mobile-hero">
+      <div>
+        <strong>Mobile analysis app</strong>
+        <span>Front face required · profile/body optional · use camera or gallery</span>
+      </div>
+      <div id="uploadSummary" class="hero-badge">0 / 4 loaded</div>
+    </section>
+
     <main class="main-grid">
       <section class="left-column">
-        <div class="upload-strip" id="uploadStrip">
-          <label class="upload-card required" data-slot="front">
-            <input id="frontInput" type="file" accept="image/*" />
-            <span>Front face</span><small>required · camera or gallery</small>
-          </label>
-          <label class="upload-card" data-slot="profile">
-            <input id="profileInput" type="file" accept="image/*" />
-            <span>Side profile</span><small>optional · camera or gallery</small>
-          </label>
-          <label class="upload-card" data-slot="bodyFront">
-            <input id="bodyFrontInput" type="file" accept="image/*" />
-            <span>Body front</span><small>optional · frame/posture</small>
-          </label>
-          <label class="upload-card" data-slot="bodySide">
-            <input id="bodySideInput" type="file" accept="image/*" />
-            <span>Body side</span><small>optional · silhouette/posture</small>
-          </label>
+        <div class="upload-strip" id="captureSection">
+          <div class="upload-card required" data-slot="front">
+            <div class="upload-head"><span>Front face</span><small>required · most important</small></div>
+            <div class="upload-preview"><img id="frontPreview" alt="Front preview" /><div class="upload-placeholder">No image yet</div></div>
+            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="front" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="front" data-source="gallery" type="button">Gallery</button></div>
+            <input id="frontInput" type="file" accept="image/*" hidden />
+          </div>
+          <div class="upload-card" data-slot="profile">
+            <div class="upload-head"><span>Side profile</span><small>optional · projection / E-line</small></div>
+            <div class="upload-preview"><img id="profilePreview" alt="Profile preview" /><div class="upload-placeholder">Optional image</div></div>
+            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="profile" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="profile" data-source="gallery" type="button">Gallery</button></div>
+            <input id="profileInput" type="file" accept="image/*" hidden />
+          </div>
+          <div class="upload-card" data-slot="bodyFront">
+            <div class="upload-head"><span>Body front</span><small>optional · frame / posture</small></div>
+            <div class="upload-preview"><img id="bodyFrontPreview" alt="Body front preview" /><div class="upload-placeholder">Optional image</div></div>
+            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="bodyFront" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="bodyFront" data-source="gallery" type="button">Gallery</button></div>
+            <input id="bodyFrontInput" type="file" accept="image/*" hidden />
+          </div>
+          <div class="upload-card" data-slot="bodySide">
+            <div class="upload-head"><span>Body side</span><small>optional · silhouette</small></div>
+            <div class="upload-preview"><img id="bodySidePreview" alt="Body side preview" /><div class="upload-placeholder">Optional image</div></div>
+            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="bodySide" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="bodySide" data-source="gallery" type="button">Gallery</button></div>
+            <input id="bodySideInput" type="file" accept="image/*" hidden />
+          </div>
         </div>
 
-        <div class="viewer-card">
+        <div class="viewer-card" id="analysisSection">
           <div class="viewer-head">
             <div>
               <h2>Visual analysis</h2>
@@ -131,7 +147,7 @@
     </main>
 
     <section class="below-grid">
-      <section class="panel full-span">
+      <section class="panel full-span" id="breakdownSection">
         <div class="panel-head sticky-head">
           <div>
             <h3>Feature breakdown</h3>
@@ -153,7 +169,7 @@
         <div id="featureGrid" class="feature-grid empty-state">Run analysis to populate the breakdown.</div>
       </section>
 
-      <section class="panel playbook-panel">
+      <section class="panel playbook-panel" id="moreSection">
         <div class="panel-head">
           <div><h3>Improvement playbook</h3><p>Focused, practical takeaways instead of fake transformations.</p></div>
         </div>
@@ -172,8 +188,15 @@
 
   <div id="toast" class="toast hidden"></div>
 
+  <nav class="app-bottom-nav">
+    <button class="nav-jump active" data-target="captureSection" type="button">Capture</button>
+    <button class="nav-jump" data-target="analysisSection" type="button">Analysis</button>
+    <button class="nav-jump" data-target="breakdownSection" type="button">Breakdown</button>
+    <button class="nav-jump" data-target="moreSection" type="button">More</button>
+  </nav>
+
   <div class="mobile-action-bar">
-    <button id="mobileResetBtn" class="ghost">Reset images</button>
+    <button id="mobileResetBtn" class="ghost">Reset</button>
     <button id="mobileAnalyzeBtn" class="primary" disabled>Analyze</button>
   </div>
   <script type="module" src="app.js"></script>
