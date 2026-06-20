@@ -1,8 +1,16 @@
+# Local/editor
+.DS_Store
+.vscode/
+
+# JS package-manager junk is not needed for the GitHub APK build
 node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Android build outputs
 *.apk
 *.aab
 android/.gradle/
-android/app/build/
 android/build/
-dist/**/*.map
-.DS_Store
+android/app/build/

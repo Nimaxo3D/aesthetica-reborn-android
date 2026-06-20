@@ -1,25 +1,23 @@
-# Aesthetica Reborn Android Project
+# Aesthetica Reborn Android
 
-This is a Capacitor Android wrapper around the mobile-ready Aesthetica Reborn web app.
+This repo is set up to build the Aesthetica Reborn Android APK through GitHub Actions **without npm, pnpm, Node installs, Android Studio, or local Android SDK downloads**.
 
-## What is included
-- `dist/` static web app files
-- `android/` native Android project created with Capacitor
-- App manifest, service worker, icons, and installable Android wrapper config
+## Build APK
 
-## Current status
-- Android project generation: complete
-- Capacitor sync: complete
-- APK build: **not built in this environment** because the Android SDK / Gradle Android toolchain is not available here
+1. Push this repo to GitHub.
+2. Open GitHub → **Actions**.
+3. Run **Build Android APK**.
+4. Download the artifact named `aesthetica-reborn-debug-apk`.
+5. Inside is `app-debug.apk`.
 
-## To build APK later
-If opened in Android Studio or a full Android build environment, the project can be built into a debug/release APK.
+## Why this version is simpler
 
-Commands:
-```bash
-npm install
-npx cap sync android
-npx cap open android
-```
+- The web app is already bundled into `android/app/src/main/assets/public/`.
+- Capacitor Android is vendored into `android/capacitor-android/`.
+- The workflow runs only Gradle in GitHub's cloud runner.
+- No `npm install`, no `pnpm`, no Node version problems.
 
-Then build from Android Studio, or with Gradle in a proper Android SDK environment.
+## Notes
+
+- The APK is a debug APK for personal install/testing.
+- The app still needs internet for MediaPipe model/CDN files on first analysis.
