@@ -3,202 +3,234 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#07080b" />
+  <meta name="theme-color" content="#06070a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.json" />
-  <title>Aesthetica Reborn — Serious Visual Aesthetics Analyzer</title>
+  <title>Aestra — Mobile Aesthetics Analyzer</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
+    <header class="app-header">
+      <div class="brand-lockup">
+        <img src="icons/icon-192.png" alt="Aestra" class="brand-icon" />
         <div>
-          <h1>Aesthetica Reborn</h1>
-          <p>Mobile-first facial aesthetics analysis with camera upload, grounded scoring, and visual overlays.</p>
+          <h1>Aestra</h1>
+          <p>Face analysis, made mobile.</p>
         </div>
       </div>
-      <div class="top-actions">
-        <select id="modeSelect" title="Aesthetic target mode">
-          <option value="balanced">Balanced</option>
-          <option value="masculine">Masculine</option>
-          <option value="feminine">Feminine</option>
-        </select>
-        <select id="strictnessSelect" title="Rating strictness">
-          <option value="strict">Strict</option>
-          <option value="normal" selected>Normal</option>
-          <option value="generous">Generous</option>
-        </select>
-        <button id="resetImagesBtn" class="ghost">Reset images</button>
-        <button id="fullResetBtn" class="ghost danger">Full reset</button>
-        <button id="installBtn" class="ghost hidden">Install</button>
-        <button id="analyzeBtn" class="primary" disabled>Analyze</button>
-      </div>
+      <div id="appStatus" class="status-pill">Ready</div>
     </header>
 
-    <section class="mobile-hero">
-      <div>
-        <strong>Mobile analysis app</strong>
-        <span>Front face required · profile/body optional · use camera or gallery</span>
-      </div>
-      <div id="uploadSummary" class="hero-badge">0 / 4 loaded</div>
-    </section>
+    <div class="app-options">
+      <select id="modeSelect" title="Aesthetic target mode">
+        <option value="balanced">Balanced</option>
+        <option value="masculine">Masculine</option>
+        <option value="feminine">Feminine</option>
+      </select>
+      <select id="strictnessSelect" title="Rating strictness">
+        <option value="strict">Strict</option>
+        <option value="normal" selected>Normal</option>
+        <option value="generous">Generous</option>
+      </select>
+      <button id="installBtn" class="ghost hidden">Install</button>
+      <button id="fullResetBtn" class="ghost danger mini-hidden">Full reset</button>
+    </div>
 
-    <main class="main-grid">
-      <section class="left-column">
-        <div class="upload-strip" id="captureSection">
-          <div class="upload-card required" data-slot="front">
-            <div class="upload-head"><span>Front face</span><small>required · most important</small></div>
-            <div class="upload-preview"><img id="frontPreview" alt="Front preview" /><div class="upload-placeholder">No image yet</div></div>
-            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="front" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="front" data-source="gallery" type="button">Gallery</button></div>
-            <input id="frontInput" type="file" accept="image/*" hidden />
+    <main class="screen-stack">
+      <section id="screen-home" class="screen active" data-screen="home">
+        <section class="hero-card result-hero">
+          <div class="score-block">
+            <span class="eyebrow">Current estimate</span>
+            <div class="score-row">
+              <div id="mainScore" class="main-score">—</div>
+              <div id="qualityRing" class="quality-ring" style="--q:0"><span>—</span><small>conf</small></div>
+            </div>
+            <div id="scoreRange" class="score-range">Add a front photo to start</div>
+            <p id="verdictText" class="verdict-text">Aestra analyzes proportions, symmetry, pose quality, and visible feature signals without pretending bad photos are truth.</p>
           </div>
-          <div class="upload-card" data-slot="profile">
-            <div class="upload-head"><span>Side profile</span><small>optional · projection / E-line</small></div>
-            <div class="upload-preview"><img id="profilePreview" alt="Profile preview" /><div class="upload-placeholder">Optional image</div></div>
-            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="profile" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="profile" data-source="gallery" type="button">Gallery</button></div>
-            <input id="profileInput" type="file" accept="image/*" hidden />
-          </div>
-          <div class="upload-card" data-slot="bodyFront">
-            <div class="upload-head"><span>Body front</span><small>optional · frame / posture</small></div>
-            <div class="upload-preview"><img id="bodyFrontPreview" alt="Body front preview" /><div class="upload-placeholder">Optional image</div></div>
-            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="bodyFront" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="bodyFront" data-source="gallery" type="button">Gallery</button></div>
-            <input id="bodyFrontInput" type="file" accept="image/*" hidden />
-          </div>
-          <div class="upload-card" data-slot="bodySide">
-            <div class="upload-head"><span>Body side</span><small>optional · silhouette</small></div>
-            <div class="upload-preview"><img id="bodySidePreview" alt="Body side preview" /><div class="upload-placeholder">Optional image</div></div>
-            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="bodySide" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="bodySide" data-source="gallery" type="button">Gallery</button></div>
-            <input id="bodySideInput" type="file" accept="image/*" hidden />
-          </div>
-        </div>
 
-        <div class="viewer-card" id="analysisSection">
-          <div class="viewer-head">
+          <div class="mini-stats">
+            <div><span>Percentile</span><b id="percentileStat">—</b></div>
+            <div><span>Validity</span><b id="validityStat">—</b></div>
+            <div><span>Pose</span><b id="poseStat">—</b></div>
+            <div><span>Inputs</span><b id="coverageStat">0/4</b></div>
+          </div>
+        </section>
+
+        <section class="viewer-card" id="analysisSection">
+          <div class="section-head compact">
             <div>
-              <h2>Visual analysis</h2>
-              <p id="viewerSub">Upload a clear front-facing image. Overlays use face-local axes, not screen horizontals.</p>
+              <h2>Face viewer</h2>
+              <p id="viewerSub">Your analyzed face appears here with mobile-friendly overlays.</p>
             </div>
-            <div class="overlay-tabs" role="tablist">
-              <button class="tab active" data-overlay="proportions">Proportions</button>
-              <button class="tab" data-overlay="symmetry">Symmetry</button>
-              <button class="tab" data-overlay="heat">Gaps</button>
-              <button class="tab" data-overlay="mesh">Mesh</button>
-              <button class="tab" data-overlay="clean">Clean</button>
-            </div>
+            <div id="poseBadge" class="pose-badge hidden">roll 0.0° · yaw low</div>
+          </div>
+          <div class="overlay-tabs" role="tablist">
+            <button class="tab active" data-overlay="proportions">Proportions</button>
+            <button class="tab" data-overlay="symmetry">Symmetry</button>
+            <button class="tab" data-overlay="heat">Gaps</button>
+            <button class="tab" data-overlay="mesh">Mesh</button>
+            <button class="tab" data-overlay="clean">Clean</button>
           </div>
           <div class="canvas-wrap" id="canvasWrap">
             <canvas id="imageCanvas"></canvas>
             <div id="dropHint" class="drop-hint">
-              <strong>Drop or upload a front-face photo</strong>
-              <span>Best input: neutral expression, lens not too wide, camera near eye height.</span>
+              <strong>No front photo yet</strong>
+              <span>Open Capture, take a camera photo, then Aestra will analyze it.</span>
             </div>
-            <div id="poseBadge" class="pose-badge hidden">roll 0.0° · yaw low</div>
-          </div>
-        </div>
-
-        <div class="compact-row">
-          <div class="panel mini-panel">
-            <div class="panel-head"><h3>Distribution curve</h3><span id="percentileLabel">—</span></div>
-            <canvas id="curveCanvas" height="135"></canvas>
-          </div>
-          <div class="panel mini-panel">
-            <div class="panel-head"><h3>Radar profile</h3><span id="radarLabel">—</span></div>
-            <canvas id="radarCanvas" height="135"></canvas>
-          </div>
-        </div>
-      </section>
-
-      <aside class="right-column">
-        <section class="verdict-card">
-          <div class="score-line">
-            <div>
-              <span class="eyebrow">Final estimate</span>
-              <div id="mainScore" class="main-score">—</div>
-              <div id="scoreRange" class="score-range">Upload image to analyze</div>
-            </div>
-            <div id="qualityRing" class="quality-ring" style="--q:0"><span>—</span><small>conf</small></div>
-          </div>
-          <div id="verdictText" class="verdict-text">No score yet. The app separates actual estimate from photo validity, pose, expression, and crop quality.</div>
-          <div class="stat-grid">
-            <div><span>Percentile</span><b id="percentileStat">—</b></div>
-            <div><span>Photo validity</span><b id="validityStat">—</b></div>
-            <div><span>Pose usability</span><b id="poseStat">—</b></div>
-            <div><span>Coverage</span><b id="coverageStat">0/4</b></div>
           </div>
         </section>
 
+        <section class="quick-capture-card" id="captureSection">
+          <div class="section-head compact">
+            <div><h2>Inputs</h2><p id="uploadSummary">0 / 4 loaded</p></div>
+            <button class="ghost small nav-open" data-go="capture">Manage</button>
+          </div>
+          <div class="quick-slots">
+            <button class="quick-slot primary-slot upload-trigger" data-slot="front" data-source="camera" type="button"><span>Front</span><small>Camera</small></button>
+            <button class="quick-slot upload-trigger" data-slot="profile" data-source="camera" type="button"><span>Profile</span><small>Camera</small></button>
+            <button class="quick-slot upload-trigger" data-slot="bodyFront" data-source="camera" type="button"><span>Body</span><small>Front</small></button>
+            <button class="quick-slot upload-trigger" data-slot="bodySide" data-source="camera" type="button"><span>Side</span><small>Body</small></button>
+          </div>
+        </section>
+      </section>
+
+      <section id="screen-capture" class="screen" data-screen="capture">
+        <section class="hero-card capture-hero">
+          <span class="eyebrow">Capture flow</span>
+          <h2>Build a usable analysis set.</h2>
+          <p>Front face is required. The other images improve context for profile, posture, and body-frame notes.</p>
+        </section>
+
+        <section class="upload-strip">
+          <div class="upload-card required" data-slot="front">
+            <div class="upload-head"><span>Front face</span><small>Required</small></div>
+            <div class="upload-preview"><img id="frontPreview" alt="Front preview" /><div class="upload-placeholder">Neutral, eye-level, clear lighting</div></div>
+            <div class="upload-actions-row"><button class="primary upload-trigger" data-slot="front" data-source="camera" type="button">Open camera</button><button class="ghost upload-trigger" data-slot="front" data-source="gallery" type="button">Gallery</button></div>
+            <input id="frontInput" type="file" accept="image/*" hidden />
+          </div>
+          <div class="upload-card" data-slot="profile">
+            <div class="upload-head"><span>Side profile</span><small>Optional</small></div>
+            <div class="upload-preview"><img id="profilePreview" alt="Profile preview" /><div class="upload-placeholder">Side angle, natural neck posture</div></div>
+            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="profile" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="profile" data-source="gallery" type="button">Gallery</button></div>
+            <input id="profileInput" type="file" accept="image/*" hidden />
+          </div>
+          <div class="upload-card" data-slot="bodyFront">
+            <div class="upload-head"><span>Body front</span><small>Optional</small></div>
+            <div class="upload-preview"><img id="bodyFrontPreview" alt="Body front preview" /><div class="upload-placeholder">Frame, shoulders, posture</div></div>
+            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="bodyFront" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="bodyFront" data-source="gallery" type="button">Gallery</button></div>
+            <input id="bodyFrontInput" type="file" accept="image/*" hidden />
+          </div>
+          <div class="upload-card" data-slot="bodySide">
+            <div class="upload-head"><span>Body side</span><small>Optional</small></div>
+            <div class="upload-preview"><img id="bodySidePreview" alt="Body side preview" /><div class="upload-placeholder">Silhouette and posture check</div></div>
+            <div class="upload-actions-row"><button class="ghost upload-trigger" data-slot="bodySide" data-source="camera" type="button">Camera</button><button class="ghost upload-trigger" data-slot="bodySide" data-source="gallery" type="button">Gallery</button></div>
+            <input id="bodySideInput" type="file" accept="image/*" hidden />
+          </div>
+        </section>
+      </section>
+
+      <section id="screen-detail" class="screen" data-screen="detail">
         <section class="panel tight-panel">
-          <div class="panel-head"><h3>Big gaps</h3><span>highest leverage</span></div>
+          <div class="section-head"><div><h2>Big gaps</h2><p>Highest leverage visual weak points.</p></div></div>
           <div id="gapList" class="chip-list empty">Waiting for analysis.</div>
         </section>
-
         <section class="panel tight-panel">
-          <div class="panel-head"><h3>Strengths</h3><span>score anchors</span></div>
+          <div class="section-head"><div><h2>Strengths</h2><p>Positive anchors in the estimate.</p></div></div>
           <div id="strengthList" class="chip-list empty">Waiting for analysis.</div>
         </section>
-
+        <section class="chart-grid">
+          <div class="panel mini-panel">
+            <div class="section-head compact"><h2>Distribution</h2><span id="percentileLabel">—</span></div>
+            <canvas id="curveCanvas" height="150"></canvas>
+          </div>
+          <div class="panel mini-panel">
+            <div class="section-head compact"><h2>Radar</h2><span id="radarLabel">—</span></div>
+            <canvas id="radarCanvas" height="150"></canvas>
+          </div>
+        </section>
         <section class="panel tight-panel">
-          <div class="panel-head"><h3>Score audit</h3><span>no hidden magic</span></div>
+          <div class="section-head"><div><h2>Score audit</h2><p>How the estimate is composed.</p></div></div>
           <div id="auditGrid" class="audit-grid"></div>
         </section>
-      </aside>
+      </section>
+
+      <section id="screen-breakdown" class="screen" data-screen="breakdown">
+        <section class="panel full-span" id="breakdownSection">
+          <div class="section-head sticky-head">
+            <div><h2>Feature breakdown</h2><p>Each metric has signal, confidence, and interpretation.</p></div>
+            <div class="search-controls">
+              <input id="metricSearch" type="search" placeholder="Filter: eyes, jaw, nose..." />
+              <select id="categoryFilter">
+                <option value="all">All categories</option>
+                <option value="structure">Structure</option>
+                <option value="eyes">Eyes</option>
+                <option value="nose-mouth">Nose / mouth</option>
+                <option value="lower-face">Lower face</option>
+                <option value="skin-photo">Skin / photo</option>
+                <option value="profile-body">Profile / body</option>
+              </select>
+            </div>
+          </div>
+          <div id="featureGrid" class="feature-grid empty-state">Run analysis to populate the breakdown.</div>
+        </section>
+      </section>
+
+      <section id="screen-plan" class="screen" data-screen="plan">
+        <section class="panel playbook-panel" id="moreSection">
+          <div class="section-head"><div><h2>Improvement plan</h2><p>Practical takeaways, sorted by impact.</p></div></div>
+          <div id="playbookList" class="playbook-list empty">Analysis required.</div>
+        </section>
+        <section class="panel model-panel">
+          <div class="section-head"><div><h2>2.5D face model</h2><p>Landmark relief and reliability notes.</p></div></div>
+          <div class="model-layout">
+            <canvas id="modelCanvas"></canvas>
+            <div id="modelNotes" class="note-list empty">Analysis required.</div>
+          </div>
+        </section>
+      </section>
     </main>
+  </div>
 
-    <section class="below-grid">
-      <section class="panel full-span" id="breakdownSection">
-        <div class="panel-head sticky-head">
-          <div>
-            <h3>Feature breakdown</h3>
-            <p>Every rating has confidence, measured signal, and practical interpretation.</p>
-          </div>
-          <div class="search-controls">
-            <input id="metricSearch" type="search" placeholder="Filter: eyes, jaw, nose..." />
-            <select id="categoryFilter">
-              <option value="all">All categories</option>
-              <option value="structure">Structure</option>
-              <option value="eyes">Eyes</option>
-              <option value="nose-mouth">Nose / mouth</option>
-              <option value="lower-face">Lower face</option>
-              <option value="skin-photo">Skin / photo</option>
-              <option value="profile-body">Profile / body</option>
-            </select>
-          </div>
-        </div>
-        <div id="featureGrid" class="feature-grid empty-state">Run analysis to populate the breakdown.</div>
-      </section>
-
-      <section class="panel playbook-panel" id="moreSection">
-        <div class="panel-head">
-          <div><h3>Improvement playbook</h3><p>Focused, practical takeaways instead of fake transformations.</p></div>
-        </div>
-        <div id="playbookList" class="playbook-list empty">Analysis required.</div>
-      </section>
-
-      <section class="panel model-panel">
-        <div class="panel-head"><div><h3>Face model & analysis notes</h3><p>2.5D landmark relief with measurement context and reliability notes.</p></div></div>
-        <div class="model-layout">
-          <canvas id="modelCanvas"></canvas>
-          <div id="modelNotes" class="note-list empty">Analysis required.</div>
-        </div>
-      </section>
-    </section>
+  <div id="cameraModal" class="camera-modal hidden" aria-hidden="true">
+    <div class="camera-sheet">
+      <div class="camera-head">
+        <div><h2 id="cameraTitle">Camera</h2><p id="cameraHint">Align the face inside the frame.</p></div>
+        <button id="cameraCloseBtn" class="ghost icon-btn" type="button">×</button>
+      </div>
+      <div class="camera-stage">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <div class="face-frame"></div>
+      </div>
+      <div class="camera-controls">
+        <button id="cameraSwitchBtn" class="ghost" type="button">Switch</button>
+        <button id="cameraCaptureBtn" class="primary shutter" type="button">Capture</button>
+        <button id="cameraFallbackBtn" class="ghost" type="button">Gallery</button>
+      </div>
+      <canvas id="cameraCanvas" hidden></canvas>
+    </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
-
-  <nav class="app-bottom-nav">
-    <button class="nav-jump active" data-target="captureSection" type="button">Capture</button>
-    <button class="nav-jump" data-target="analysisSection" type="button">Analysis</button>
-    <button class="nav-jump" data-target="breakdownSection" type="button">Breakdown</button>
-    <button class="nav-jump" data-target="moreSection" type="button">More</button>
-  </nav>
 
   <div class="mobile-action-bar">
     <button id="mobileResetBtn" class="ghost">Reset</button>
     <button id="mobileAnalyzeBtn" class="primary" disabled>Analyze</button>
   </div>
+
+  <nav class="bottom-tabs" aria-label="App tabs">
+    <button class="bottom-tab active" data-go="home" type="button"><span>⌂</span><b>Home</b></button>
+    <button class="bottom-tab" data-go="capture" type="button"><span>◉</span><b>Capture</b></button>
+    <button class="bottom-tab" data-go="detail" type="button"><span>◇</span><b>Detail</b></button>
+    <button class="bottom-tab" data-go="breakdown" type="button"><span>≡</span><b>Metrics</b></button>
+    <button class="bottom-tab" data-go="plan" type="button"><span>↗</span><b>Plan</b></button>
+  </nav>
+
+  <button id="analyzeBtn" class="hidden" disabled>Analyze</button>
+  <button id="resetImagesBtn" class="hidden">Reset images</button>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>

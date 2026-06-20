@@ -75,7 +75,8 @@ const els = {
   curveCanvas: $("curveCanvas"), radarCanvas: $("radarCanvas"), percentileLabel: $("percentileLabel"), radarLabel: $("radarLabel"),
   metricSearch: $("metricSearch"), categoryFilter: $("categoryFilter"), playbookList: $("playbookList"),
   modelCanvas: $("modelCanvas"), modelNotes: $("modelNotes"), toast: $("toast"), installBtn: $("installBtn"), mobileAnalyzeBtn: $("mobileAnalyzeBtn"), mobileResetBtn: $("mobileResetBtn"),
-  uploadSummary: $("uploadSummary"), frontPreview: $("frontPreview"), profilePreview: $("profilePreview"), bodyFrontPreview: $("bodyFrontPreview"), bodySidePreview: $("bodySidePreview")
+  uploadSummary: $("uploadSummary"), frontPreview: $("frontPreview"), profilePreview: $("profilePreview"), bodyFrontPreview: $("bodyFrontPreview"), bodySidePreview: $("bodySidePreview"),
+  appStatus: $("appStatus"), cameraModal: $("cameraModal"), cameraVideo: $("cameraVideo"), cameraCanvas: $("cameraCanvas"), cameraTitle: $("cameraTitle"), cameraHint: $("cameraHint"), cameraCloseBtn: $("cameraCloseBtn"), cameraCaptureBtn: $("cameraCaptureBtn"), cameraSwitchBtn: $("cameraSwitchBtn"), cameraFallbackBtn: $("cameraFallbackBtn")
 };
 const ctx = els.canvas.getContext("2d");
 const curveCtx = els.curveCanvas.getContext("2d");
@@ -85,7 +86,8 @@ const modelCtx = els.modelCanvas.getContext("2d");
 const state = {
   slots:{ front:null, profile:null, bodyFront:null, bodySide:null },
   faceLandmarker:null, poseLandmarker:null, ready:false, busy:false,
-  overlay:"proportions", fit:null, analysis:null, deferredInstallPrompt:null
+  overlay:"proportions", fit:null, analysis:null, deferredInstallPrompt:null,
+  activeScreen:"home", camera:{stream:null, slot:null, facingMode:"user"}, autoAnalyzeTimer:null
 };
 
 
@@ -124,10 +126,12 @@ async function loadImageFile(file){
 
 function inputForSlot(slot){ return ({front:els.frontInput, profile:els.profileInput, bodyFront:els.bodyFrontInput, bodySide:els.bodySideInput})[slot]; }
 function previewForSlot(slot){ return ({front:els.frontPreview, profile:els.profilePreview, bodyFront:els.bodyFrontPreview, bodySide:els.bodySidePreview})[slot]; }
+function slotLabel(slot){ return ({front:"Front face", profile:"Side profile", bodyFront:"Body front", bodySide:"Body side"})[slot] || "Image"; }
+function setStatus(text){ if(els.appStatus) els.appStatus.textContent = text; }
 function updateUploadSummary(){
-  if(!els.uploadSummary) return;
   const count = Object.values(state.slots).filter(Boolean).length;
-  els.uploadSummary.textContent = `${count} / 4 loaded`;
+  if(els.uploadSummary) els.uploadSummary.textContent = `${count} / 4 loaded`;
+  setStatus(state.busy ? "Analyzing" : state.analysis ? "Analyzed" : state.slots.front ? "Ready" : "Capture");
 }
 function updateSlotPreview(slot, data){
   const img = previewForSlot(slot);
@@ -135,18 +139,27 @@ function updateSlotPreview(slot, data){
   if(data?.url){ img.src = data.url; img.style.display='block'; }
   else { img.removeAttribute('src'); img.style.display=''; }
 }
-function triggerSlotInput(slot, source){
+function imageFromDataUrl(url, name="camera-capture.jpg"){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = () => resolve({file:null, url, img, name});
+    img.onerror = () => reject(new Error("Captured image failed to load"));
+    img.src = url;
+  });
+}
+function fallbackFilePicker(slot, source="gallery"){
   const input = inputForSlot(slot); if(!input) return;
   input.setAttribute('accept','image/*');
-  if(source === 'camera') {
-    input.setAttribute('capture', slot === 'bodyFront' || slot === 'bodySide' ? 'environment' : 'user');
-  } else {
-    input.removeAttribute('capture');
-  }
+  if(source === 'camera') input.setAttribute('capture', slot === 'bodyFront' || slot === 'bodySide' ? 'environment' : 'user');
+  else input.removeAttribute('capture');
   input.click();
 }
+async function triggerSlotInput(slot, source){
+  if(source === 'camera') return openCamera(slot);
+  return fallbackFilePicker(slot, 'gallery');
+}
 function setSlot(slot, data){
-  if (state.slots[slot]?.url) URL.revokeObjectURL(state.slots[slot].url);
+  if (state.slots[slot]?.url && state.slots[slot].url.startsWith('blob:')) URL.revokeObjectURL(state.slots[slot].url);
   state.slots[slot] = data;
   document.querySelector(`.upload-card[data-slot="${slot}"]`)?.classList.toggle("loaded", !!data);
   updateSlotPreview(slot, data);
@@ -154,11 +167,84 @@ function setSlot(slot, data){
   updateAnalyzeEnabled();
   clearAnalysis(false);
   if (slot === "front") drawViewer();
+  if (state.slots.front) {
+    clearTimeout(state.autoAnalyzeTimer);
+    state.autoAnalyzeTimer = setTimeout(()=>{ if(state.slots.front && !state.busy) analyze(); }, 520);
+  }
 }
-function updateAnalyzeEnabled(){ const disabled = !state.slots.front || state.busy; els.analyzeBtn.disabled = disabled; if(els.mobileAnalyzeBtn) els.mobileAnalyzeBtn.disabled = disabled; }
+async function openCamera(slot){
+  state.camera.slot = slot;
+  state.camera.facingMode = (slot === 'bodyFront' || slot === 'bodySide') ? 'environment' : 'user';
+  els.cameraTitle.textContent = `Capture ${slotLabel(slot)}`;
+  els.cameraHint.textContent = slot === 'front' ? 'Neutral expression, eye-level camera, fill the face oval.' : 'Keep the phone steady and use clean light.';
+  els.cameraModal.classList.remove('hidden');
+  els.cameraModal.setAttribute('aria-hidden','false');
+  await startCameraStream();
+}
+async function startCameraStream(){
+  try{
+    stopCameraStream(false);
+    if(!navigator.mediaDevices?.getUserMedia) throw new Error('Browser camera API unavailable');
+    const constraints = {video:{facingMode:state.camera.facingMode, width:{ideal:1280}, height:{ideal:1920}}, audio:false};
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    state.camera.stream = stream;
+    els.cameraVideo.srcObject = stream;
+    await els.cameraVideo.play().catch(()=>{});
+  }catch(e){
+    toast('In-app camera unavailable. Opening Android picker…', 3200);
+    closeCamera(false);
+    fallbackFilePicker(state.camera.slot || 'front', 'camera');
+  }
+}
+function stopCameraStream(clear=true){
+  if(state.camera.stream){
+    for(const track of state.camera.stream.getTracks()) track.stop();
+    state.camera.stream = null;
+  }
+  if(clear && els.cameraVideo) els.cameraVideo.srcObject = null;
+}
+function closeCamera(clearSlot=true){
+  stopCameraStream(true);
+  els.cameraModal.classList.add('hidden');
+  els.cameraModal.setAttribute('aria-hidden','true');
+  if(clearSlot) state.camera.slot = null;
+}
+async function captureCameraFrame(){
+  const slot = state.camera.slot || 'front';
+  const video = els.cameraVideo;
+  if(!video.videoWidth || !video.videoHeight) return toast('Camera is not ready yet.');
+  const canvas = els.cameraCanvas;
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  const c = canvas.getContext('2d');
+  c.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', .92);
+  const data = await imageFromDataUrl(dataUrl, `${slot}-camera.jpg`);
+  setSlot(slot, data);
+  closeCamera();
+  switchScreen(slot === 'front' ? 'home' : 'capture');
+  toast(`${slotLabel(slot)} captured.`);
+}
+function switchCamera(){
+  state.camera.facingMode = state.camera.facingMode === 'user' ? 'environment' : 'user';
+  startCameraStream();
+}
+function switchScreen(name){
+  state.activeScreen = name;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.dataset.screen === name));
+  document.querySelectorAll('.bottom-tab').forEach(b=>b.classList.toggle('active', b.dataset.go === name));
+  window.scrollTo({top:0, behavior:'smooth'});
+  requestAnimationFrame(()=>{ drawViewer(); renderModel(); renderCurve(); renderRadar(); });
+}
+function updateAnalyzeEnabled(){
+  const disabled = !state.slots.front || state.busy;
+  els.analyzeBtn.disabled = disabled;
+  if(els.mobileAnalyzeBtn) els.mobileAnalyzeBtn.disabled = disabled;
+  if(els.mobileAnalyzeBtn) els.mobileAnalyzeBtn.textContent = state.busy ? 'Analyzing…' : state.analysis ? 'Re-analyze' : 'Analyze';
+  setStatus(state.busy ? 'Analyzing' : state.analysis ? 'Analyzed' : state.slots.front ? 'Ready' : 'Capture');
+}
 async function handleFile(slot, input){
   const file = input.files?.[0]; if (!file) return;
-  try { setSlot(slot, await loadImageFile(file)); toast(`${slot} image loaded.`); }
+  try { setSlot(slot, await loadImageFile(file)); toast(`${slotLabel(slot)} loaded.`); }
   catch(e){ toast(e.message || "Could not load image"); }
 }
 
@@ -167,10 +253,11 @@ els.profileInput.addEventListener("change", e=>handleFile("profile", e.target));
 els.bodyFrontInput.addEventListener("change", e=>handleFile("bodyFront", e.target));
 els.bodySideInput.addEventListener("change", e=>handleFile("bodySide", e.target));
 for (const btn of document.querySelectorAll('.upload-trigger')) btn.addEventListener('click', ()=> triggerSlotInput(btn.dataset.slot, btn.dataset.source));
-for (const btn of document.querySelectorAll('.nav-jump')) btn.addEventListener('click', ()=> {
-  document.querySelectorAll('.nav-jump').forEach(b=>b.classList.toggle('active', b===btn));
-  document.getElementById(btn.dataset.target)?.scrollIntoView({behavior:'smooth', block:'start'});
-});
+for (const btn of document.querySelectorAll('[data-go]')) btn.addEventListener('click', ()=> switchScreen(btn.dataset.go));
+els.cameraCloseBtn?.addEventListener('click', ()=>closeCamera());
+els.cameraCaptureBtn?.addEventListener('click', captureCameraFrame);
+els.cameraSwitchBtn?.addEventListener('click', switchCamera);
+els.cameraFallbackBtn?.addEventListener('click', ()=>{ const slot = state.camera.slot || 'front'; closeCamera(); fallbackFilePicker(slot, 'gallery'); });
 for (const btn of document.querySelectorAll(".tab")) btn.addEventListener("click", () => { document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); state.overlay = btn.dataset.overlay; drawViewer(); });
 els.modeSelect.addEventListener("change", ()=> state.analysis && analyze());
 els.strictnessSelect.addEventListener("change", ()=> state.analysis && analyze());
@@ -186,7 +273,7 @@ els.wrap.addEventListener("dragover", e=>{e.preventDefault(); els.wrap.classList
 els.wrap.addEventListener("drop", async e=>{ e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f) setSlot("front", await loadImageFile(f)); });
 
 function resetImages(){
-  for (const k of Object.keys(state.slots)) { if (state.slots[k]?.url) URL.revokeObjectURL(state.slots[k].url); state.slots[k]=null; updateSlotPreview(k, null); }
+  for (const k of Object.keys(state.slots)) { if (state.slots[k]?.url && state.slots[k].url.startsWith('blob:')) URL.revokeObjectURL(state.slots[k].url); state.slots[k]=null; updateSlotPreview(k, null); }
   for (const input of [els.frontInput, els.profileInput, els.bodyFrontInput, els.bodySideInput]) input.value = "";
   document.querySelectorAll(".upload-card").forEach(c=>c.classList.remove("loaded","error"));
   updateUploadSummary();
@@ -200,9 +287,9 @@ function fullReset(){
 }
 function clearAnalysis(clearCanvas){
   state.analysis = null;
-  els.mainScore.textContent = "—"; els.scoreRange.textContent = state.slots.front ? "Ready to analyze" : "Upload image to analyze";
+  els.mainScore.textContent = "—"; els.scoreRange.textContent = state.slots.front ? "Ready to analyze" : "Add a front photo to start";
   els.qualityRing.style.setProperty("--q", 0); els.qualityRing.querySelector("span").textContent = "—";
-  els.verdictText.textContent = "No score yet. The app separates actual estimate from photo validity, pose, expression, and crop quality.";
+  els.verdictText.textContent = "Aestra analyzes proportions, symmetry, pose quality, and visible feature signals without pretending bad photos are truth.";
   els.percentileStat.textContent = "—"; els.validityStat.textContent = "—"; els.poseStat.textContent = "—";
   els.coverageStat.textContent = coverageText();
   els.gapList.className = "chip-list empty"; els.gapList.textContent = "Waiting for analysis.";
@@ -236,7 +323,7 @@ async function initVision(){
 
 async function analyze(){
   if (!state.slots.front || state.busy) return;
-  state.busy = true; updateAnalyzeEnabled(); els.analyzeBtn.textContent = "Analyzing…";
+  state.busy = true; setStatus("Analyzing"); updateAnalyzeEnabled(); els.analyzeBtn.textContent = "Analyzing…";
   try {
     await initVision();
     const front = state.slots.front.img;
@@ -259,7 +346,8 @@ async function analyze(){
     }
     state.analysis = assembleAnalysis(frontAnalysis, profileAnalysis, bodyAnalysis);
     renderAll();
-    toast("Analysis rebuilt from scratch.");
+    switchScreen("home");
+    toast("Analysis complete.");
   } catch(e){ toast(e.message || "Analysis failed", 5200); console.error(e); }
   finally { state.busy = false; els.analyzeBtn.textContent = "Analyze"; updateAnalyzeEnabled(); }
 }
@@ -787,4 +875,4 @@ function renderModelNotes(){
 
 // Initial state
 registerPwaSupport();
-clearAnalysis(false); drawViewer(); updateUploadSummary(); updateAnalyzeEnabled();
+clearAnalysis(false); drawViewer(); updateUploadSummary(); updateAnalyzeEnabled(); switchScreen('home');

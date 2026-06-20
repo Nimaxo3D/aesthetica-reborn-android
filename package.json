@@ -1,6 +1,6 @@
 {
-  "name": "aesthetica-reborn-android-webview",
-  "version": "1.0.0",
+  "name": "aestra-android-webview",
+  "version": "2.0.0",
   "private": true,
-  "description": "Native Android WebView wrapper for Aesthetica Reborn. No npm build needed."
+  "description": "Aestra mobile-first Android WebView build. No npm build step required."
 }

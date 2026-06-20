@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Aestra APK
 
 on:
   workflow_dispatch:
@@ -32,7 +32,7 @@ jobs:
       - name: Show project files
         run: |
           echo "Root:" && ls -la
-          echo "Android app:" && find android/app/src/main -maxdepth 3 -type f | sort | head -100
+          echo "Android assets:" && find android/app/src/main/assets -maxdepth 2 -type f | sort
 
       - name: Build debug APK
         run: gradle -p android :app:assembleDebug --no-daemon --stacktrace
@@ -40,5 +40,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: aesthetica-reborn-debug-apk
+          name: aestra-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk

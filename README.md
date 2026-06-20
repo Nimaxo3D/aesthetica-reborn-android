@@ -1,20 +1,19 @@
-# Aesthetica Reborn Android WebView Build
+# Aestra Android
 
-This is the simplified Android package.
+Mobile-first Android WebView build of the Aestra facial aesthetics analyzer.
 
-- No npm
-- No pnpm
-- No Node dependency install
-- No Capacitor sync
-- No gradlew requirement
+This project intentionally avoids npm/pnpm/Capacitor during CI. GitHub Actions builds the Android APK directly with Gradle.
 
-The Android app is a native WebView wrapper loading the same Aesthetica Reborn web app from Android assets.
+## Build
 
-## Build on GitHub
+1. Push the repo to GitHub.
+2. Open **Actions**.
+3. Run **Build Android APK**.
+4. Download the uploaded APK artifact.
 
-1. Upload the **contents** of this folder to the repository root.
-2. Go to Actions → Build Android APK → Run workflow.
-3. Download the `aesthetica-reborn-debug-apk` artifact.
-4. Install the APK on Android.
+## Notes
 
-The first real analysis still needs internet because MediaPipe loads model/runtime files from web CDNs.
+- Main app UI is mobile-first and tab-based.
+- In-app camera is supported through Android WebView camera permissions and `getUserMedia`.
+- Gallery fallback still works.
+- The analysis core still uses MediaPipe models loaded from the network on first use.
